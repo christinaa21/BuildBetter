@@ -9,7 +9,7 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
+      <Text>BuildBetter adalah sebuah aplikasi yang dirancang untuk memudahkan individu dalam persiapan pembangunan rumah yang berkelanjutan.</Text>
     </View>
   );
 }
