@@ -28,9 +28,16 @@ module.exports = {
           '50': '#3F473D', // Primary
           '100': '#222920'
         }
+      },
+      fontFamily: {
+        'poppins-regular': ["Poppins_400Regular", "sans-serif"],
+        'poppins-regular-italic': ["Poppins_400Regular_Italic", "sans-serif"],
+        'poppins-medium': ["Poppins_500Medium", "sans-serif"],
+        'poppins-medium-italic': ["Poppins_500Medium_Italic", "sans-serif"],
+        'poppins-semibold': ["Poppins_600SemiBold", "sans-serif"],
+        'poppins-semibold-italic': ["Poppins_600SemiBold_Italic", "sans-serif"]
       }
     },
   },
   plugins: [],
 }
-
