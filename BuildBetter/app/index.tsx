@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from './theme';
 import { typography } from './theme/typography';
+import ProgressButton from '@/component/ProgressButton';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -18,14 +20,7 @@ export default function LandingPage() {
           BuildBetter adalah sebuah aplikasi yang dirancang untuk memudahkan individu dalam persiapan pembangunan atau renovasi rumah yang berkelanjutan.
         </Text>
       </View>
-
-      <TouchableOpacity 
-        style={styles.button}
-        onPress={() => router.push('/')}
-      >
-        {/* Temporary arrow using View */}
-        <View style={styles.arrow} />
-      </TouchableOpacity>
+      <ProgressButton count={33} icon={() => <MaterialIcons name="chevron-right" size={40} color="white" />} />
     </View>
   );
 }
@@ -37,7 +32,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'space-between',
     paddingTop: '50%',
-    paddingBottom: 40,
+    paddingBottom: '25%',
   },
   welcomeText: {
     fontFamily: theme.fonts.poppins.medium,
@@ -58,23 +53,6 @@ const styles = StyleSheet.create({
     color: theme.colors.customGreen[200],
     textAlign: 'center',
     lineHeight: 20,
-    paddingHorizontal: 8
+    paddingHorizontal: 8,
   },
-  button: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.customGreen[300],
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrow: {
-    width: 16,
-    height: 16,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderColor: theme.colors.customWhite[50],
-    transform: [{rotate: '45deg'}],
-  }
 });
