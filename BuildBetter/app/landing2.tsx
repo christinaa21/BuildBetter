@@ -9,18 +9,17 @@ export default function LandingPage() {
   const router = useRouter();
 
   return (
-    <View style={styles.container} onTouchEnd={() => router.push('/landing2')}>
+    <View style={styles.container} onTouchEnd={() => router.push('/landing3')}>
       <View>
         <Text style={styles.welcomeText}>
-          Selamat datang di
+          Yuk rencanakan rumahmu!
         </Text>
-        <Text style={styles.buildBetter}>BuildBetter</Text>
 
         <Text style={[typography.body1, styles.description]}>
-          BuildBetter adalah sebuah aplikasi yang dirancang untuk memudahkanmu dalam persiapan pembangunan rumah yang berkelanjutan.
+            Jawab pertanyaan seputar rencana pembangunan rumahmu dan dapatkan rekomendasi desain rumah dan daftar material yang sesuai dengan kebutuhanmu.
         </Text>
       </View>
-      <ProgressButton count={33} icon={() => <MaterialIcons name="chevron-right" size={40} color="white" />} page='/landing2'/>
+      <ProgressButton count={66} icon={() => <MaterialIcons name="chevron-right" size={40} color="white" />} page='/landing3'/>
     </View>
   );
 }
@@ -39,13 +38,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 40,
     color: theme.colors.customGreen[300],
-    textAlign: 'center',
-  },
-  buildBetter: {
-    fontFamily: theme.fonts.poppins.bold,
-    fontSize: 32,
-    letterSpacing: 0.25,
-    color: theme.colors.customOlive[50],
     textAlign: 'center',
     marginBottom: 32,
   },
