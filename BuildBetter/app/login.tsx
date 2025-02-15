@@ -51,8 +51,8 @@ const Login = () => {
   };
 
   const validatePassword = (password: string) => {
-    if (!password) return 'Harap masukkan password';
-    if (password.length < 6) return 'Password harus terdiri dari setidaknya 6 karakter';
+    if (!password) return 'Harap masukkan kata sandi';
+    if (password.length < 6) return 'Kata sandi harus terdiri dari setidaknya 6 karakter';
     return undefined;
   };
 
@@ -87,7 +87,6 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
-      console.log("Navigating to /test");
       router.push('/test');
     }
   };
