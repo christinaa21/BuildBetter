@@ -5,7 +5,8 @@ export const colors = {
   },
   customGray: {
     50: '#D9D9D9',
-    100: '#C6C6C6'
+    100: '#C6C6C6',
+    200: '#ABABB0'
   },
   customGreen: {
     50: '#BBCBCD',
@@ -13,7 +14,9 @@ export const colors = {
     200: '#45605A',
     300: '#30534B', // Primary
     400: '#36534D',
-    500: '#15322C'
+    500: '#15322C',
+    600: '#1D322D',
+    700: '#0E1917',
   },
   customOlive: {
     50: '#3F473D', // Primary

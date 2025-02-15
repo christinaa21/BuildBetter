@@ -15,6 +15,7 @@ import {
   Image
 } from 'react-native';
 import Textfield from '@/component/Textfield';
+import { useRouter } from 'expo-router';
 
 interface LoginFormData {
   email: string;
@@ -60,6 +61,8 @@ const Login = () => {
     }));
   };
 
+  const router = useRouter();
+
   const handleLogin = async () => {
     Keyboard.dismiss();
     
@@ -82,6 +85,8 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
+      console.log("Navigating to /test");
+      router.push('/test');
     }
   };
 
