@@ -6,7 +6,6 @@ import {
   StyleSheet,
   SafeAreaView,
   Dimensions,
-  ActivityIndicator,
   Animated,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,7 +14,10 @@ import {
   Image
 } from 'react-native';
 import Textfield from '@/component/Textfield';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import Button from '@/component/Button';
+import {theme} from './theme';
+import { typography } from './theme/typography';
 
 interface LoginFormData {
   email: string;
@@ -43,14 +45,14 @@ const Login = () => {
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) return 'Email is required';
-    if (!emailRegex.test(email)) return 'Invalid email format';
+    if (!email) return 'Harap masukkan email';
+    if (!emailRegex.test(email)) return 'Format email salah';
     return undefined;
   };
 
   const validatePassword = (password: string) => {
-    if (!password) return 'Password is required';
-    if (password.length < 6) return 'Password must be at least 6 characters';
+    if (!password) return 'Harap masukkan password';
+    if (password.length < 6) return 'Password harus terdiri dari setidaknya 6 karakter';
     return undefined;
   };
 
@@ -159,37 +161,22 @@ const Login = () => {
                 style={styles.forgotPasswordContainer}
                 activeOpacity={0.7}
               >
-                <Text style={styles.forgotPassword}>Lupa kata sandi?</Text>
+                <Link style={[typography.body2, styles.forgotPassword]} href='/forgot-password'>Lupa kata sandi?</Link>
               </TouchableOpacity>
             </View>
 
-            <Animated.View
-              style={[
-                styles.loginButtonContainer,
-                { transform: [{ translateX: buttonAnimation }] }
-              ]}
-            >
-              <TouchableOpacity 
-                style={[
-                  styles.loginButton,
-                  (!isValid.email || !isValid.password) && styles.loginButtonDisabled
-                ]}
+            <Animated.View style={{ transform: [{ translateX: buttonAnimation }] }}>
+              <Button
+                title={isLoading ? 'Loading...' : 'Login'}
+                variant="primary"
                 onPress={handleLogin}
-                disabled={isLoading || !isValid.email || !isValid.password}
-                activeOpacity={0.8}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.loginButtonText}>Login</Text>
-                )}
-              </TouchableOpacity>
+              />
             </Animated.View>
 
             <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>Belum punya akun? </Text>
+              <Text style={[typography.body2, styles.registerText]}>Belum punya akun? </Text>
               <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.registerLink}>Daftar disini</Text>
+                <Link style={[typography.subtitle2, styles.registerLink]} href='/register'>Daftar disini</Link>
               </TouchableOpacity>
             </View>
           </View>
@@ -202,7 +189,7 @@ const Login = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.customWhite[50],
   },
   keyboardAvoid: {
     flex: 1,
@@ -225,33 +212,12 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignItems: 'flex-end',
-    marginTop: 8,
+    marginTop: 4,
   },
   forgotPassword: {
-    color: '#2F4F4F',
+    color: theme.colors.customGreen[200],
     fontSize: 14,
-  },
-  loginButtonContainer: {
-    marginBottom: 24,
-  },
-  loginButton: {
-    backgroundColor: '#2F4F4F',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  loginButtonDisabled: {
-    backgroundColor: '#B0C4C4',
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   registerContainer: {
     flexDirection: 'row',
@@ -259,13 +225,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   registerText: {
-    color: '#000000',
-    fontSize: 14,
+    color: theme.colors.customOlive[50],
   },
   registerLink: {
-    color: '#2F4F4F',
-    fontSize: 14,
-    fontWeight: '500',
+    color: theme.colors.customGreen[200],
+    textDecorationLine: 'underline',
   },
 });
 

@@ -188,7 +188,7 @@ const Textfield: React.FC<TextfieldProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 8,
-    paddingTop: 15,
+    paddingTop: 8,
   },
   labelContainer: {
     position: 'relative',
