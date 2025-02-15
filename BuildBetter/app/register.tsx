@@ -18,6 +18,8 @@ import { Link, useRouter } from 'expo-router';
 import Button from '@/component/Button';
 import {theme} from './theme';
 import { typography } from './theme/typography';
+import Dropdown from '@/component/Dropdown';
+import locationData from '@/data/location.json';
 
 interface RegisterFormData {
   email: string;
@@ -54,6 +56,38 @@ const Register = () => {
     password: false,
     password2: false,
   });
+  const [cities, setCities] = useState<Array<{ label: string; value: string }>>([]);
+
+  const provinces = locationData.provinces.map(province => ({
+    label: province.label,
+    value: province.value
+  }));
+
+  const handleProvinceChange = (provinceValue: string) => {
+    const provinceCities = getCities(provinceValue).map(city => ({
+      label: city.label,
+      value: city.value
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      province: provinceValue,
+      city: '',
+    }));
+    setCities(provinceCities);
+  };
+
+  const handleCityChange = (cityValue: string) => {
+    setFormData(prev => ({
+      ...prev,
+      city: cityValue,
+    }));
+  };
+
+  const getCities = (provinceValue: string) => {
+    const province = locationData.provinces.find(p => p.value === provinceValue);
+    return province?.cities || [];
+  };
 
   const buttonAnimation = new Animated.Value(0);
 
@@ -95,7 +129,20 @@ const Register = () => {
   const handleRegister = async () => {
     Keyboard.dismiss();
     
-    if (!isValid.email || !isValid.phone || !isValid.password || isValid.password2) {
+    // Add validation for province and city
+    if (!formData.province) {
+      setErrors(prev => ({ ...prev, province: 'Harap pilih provinsi' }));
+      animateButton();
+      return;
+    }
+    
+    if (!formData.city) {
+      setErrors(prev => ({ ...prev, city: 'Harap pilih kota' }));
+      animateButton();
+      return;
+    }
+    
+    if (!isValid.email || !isValid.phone || !isValid.password || !isValid.password2) {
       animateButton();
       return;
     }
@@ -192,6 +239,26 @@ const Register = () => {
                 }}
                 autoComplete="name"
                 autoCapitalize='words'
+              />
+
+              <Dropdown
+                label="Provinsi"
+                placeholder="Pilih provinsi"
+                searchPlaceholder='Cari provinsi...'
+                options={provinces}
+                value={formData.province}
+                onChange={handleProvinceChange}
+                error={errors.province}
+              />
+
+              <Dropdown
+                label="Kota"
+                placeholder="Pilih kota"
+                searchPlaceholder='Cari kota...'
+                options={cities}
+                value={formData.city}
+                onChange={handleCityChange}
+                error={errors.city}
               />
 
               <Textfield

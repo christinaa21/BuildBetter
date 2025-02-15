@@ -67,8 +67,16 @@ const Login = () => {
 
   const handleLogin = async () => {
     Keyboard.dismiss();
+  
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
     
-    if (!isValid.email || !isValid.password) {
+    setErrors({
+      email: emailError,
+      password: passwordError,
+    });
+  
+    if (emailError || passwordError) {
       animateButton();
       return;
     }

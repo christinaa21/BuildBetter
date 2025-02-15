@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
   ScrollView,
   Animated,
   LayoutAnimation,
   Platform,
   UIManager,
+  Modal,
+  Dimensions,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../app/theme';
@@ -22,31 +26,39 @@ if (Platform.OS === 'android') {
 
 interface DropdownProps {
   label?: string;
-  example?: string;
-  value: string;
-  items: Array<{ label: string; value: string }>;
-  onSelect: (value: string) => void;
+  placeholder?: string;
+  options: { label: string; value: any }[];
+  value?: any;
+  onChange: (value: any) => void;
   error?: string;
+  searchPlaceholder?: string;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
   label,
-  example,
+  placeholder = 'Select an option',
+  options,
   value,
-  items,
-  onSelect,
+  onChange,
   error,
+  searchPlaceholder = 'Search...',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [localError, setLocalError] = useState<string | undefined>(error);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const borderColorAnim = useRef(new Animated.Value(0)).current;
   const labelAnimation = useRef(new Animated.Value(value ? 1 : 0)).current;
 
-  useEffect(() => {
-    setLocalError(error);
-  }, [error]);
+  const selectedOption = options.find(option => option.value === value);
+
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    
+    return options.filter(option => 
+      option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [options, searchQuery]);
 
   const animateFocus = (focused: boolean) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -66,21 +78,28 @@ const Dropdown: React.FC<DropdownProps> = ({
   };
 
   const handlePress = () => {
-    setIsOpen(!isOpen);
-    setIsFocused(!isOpen);
-    animateFocus(!isOpen);
+    setIsOpen(true);
+    setIsFocused(true);
+    setSearchQuery('');
+    animateFocus(true);
   };
 
-  const handleSelect = (selectedValue: string) => {
-    onSelect(selectedValue);
+  const handleClose = () => {
+    Keyboard.dismiss();
     setIsOpen(false);
     setIsFocused(false);
-    setLocalError(undefined);
+    setSearchQuery('');
     animateFocus(false);
   };
 
+  const handleSelect = (option: { label: string; value: any }) => {
+    Keyboard.dismiss();
+    onChange(option.value);
+    handleClose();
+  };
+
   const getBorderColor = () => {
-    if (localError) return 'red';
+    if (error) return 'red';
     return borderColorAnim.interpolate({
       inputRange: [0, 1],
       outputRange: [theme.colors.customGray[50], theme.colors.customGreen[300]],
@@ -98,8 +117,6 @@ const Dropdown: React.FC<DropdownProps> = ({
     ],
   };
 
-  const selectedItem = items.find(item => item.value === value);
-
   return (
     <View style={styles.container}>
       <View style={styles.labelContainer}>
@@ -108,71 +125,131 @@ const Dropdown: React.FC<DropdownProps> = ({
             styles.label,
             typography.body2,
             labelStyle,
-            isFocused && !localError && styles.labelFocused,
-            localError && styles.labelError,
+            isFocused && !error && styles.labelFocused,
+            error && styles.labelError,
           ]}
         >
-          {label}
+          {label || placeholder}
         </Animated.Text>
       </View>
-      
-      <Animated.View
-        style={[
-          styles.inputContainer,
-          { borderColor: getBorderColor() },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.selector}
-          onPress={handlePress}
-          activeOpacity={0.7}
-        >
-          <Text style={[
-            styles.selectorText,
-            typography.body1,
-            !value && styles.placeholder
-          ]}>
-            {selectedItem?.label || example || `Pilih ${label}`}
-          </Text>
-          <MaterialIcons
-            name={isOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-            size={20}
-            color={theme.colors.customOlive[50]}
-          />
-        </TouchableOpacity>
-      </Animated.View>
 
-      {isOpen && (
-        <View style={styles.dropdown}>
-          <ScrollView 
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+      <TouchableOpacity onPress={handlePress}>
+        <Animated.View
+          style={[
+            styles.inputContainer,
+            { borderColor: getBorderColor() },
+          ]}
+        >
+          <Text 
+            style={[
+              styles.selectedText,
+              typography.body1,
+              !selectedOption && styles.placeholder
+            ]}
           >
-            {items.map((item) => (
-              <TouchableOpacity
-                key={item.value}
-                style={styles.item}
-                onPress={() => handleSelect(item.value)}
-              >
-                <Text style={[
-                  styles.itemText,
-                  typography.body1,
-                  value === item.value && styles.selectedItem
-                ]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-      
-      {localError && (
+            {selectedOption ? selectedOption.label : placeholder}
+          </Text>
+          <MaterialIcons 
+            name={isOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+            size={24} 
+            color={theme.colors.customOlive[50]}
+            style={styles.icon}
+          />
+        </Animated.View>
+      </TouchableOpacity>
+
+      {error && (
         <Text style={[styles.errorText, typography.caption]}>
-          {localError}
+          {error}
         </Text>
       )}
+
+      <Modal
+        visible={isOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClose}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleClose}
+        >
+          <View 
+            style={styles.modalContent} 
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.searchContainer}>
+              <MaterialIcons 
+                name="search" 
+                size={20} 
+                color={theme.colors.customOlive[50]}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={[styles.searchInput, typography.body1]}
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={theme.colors.customGray[100]}
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  if (filteredOptions.length > 0) {
+                    handleSelect(filteredOptions[0]);
+                  }
+                }}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity 
+                  onPress={() => setSearchQuery('')}
+                  style={styles.clearButton}
+                >
+                  <MaterialIcons 
+                    name="close" 
+                    size={20} 
+                    color={theme.colors.customOlive[50]}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <ScrollView 
+              style={styles.optionsList}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.option,
+                      option.value === value && styles.selectedOption
+                    ]}
+                    onPress={() => handleSelect(option)}
+                  >
+                    <Text 
+                      style={[
+                        styles.optionText,
+                        typography.body1,
+                        option.value === value && styles.selectedOptionText
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.noResults}>
+                  <Text style={[styles.noResultsText, typography.body1]}>
+                    No results found
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -181,7 +258,6 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 8,
     paddingTop: 8,
-    zIndex: 1,
   },
   labelContainer: {
     position: 'relative',
@@ -201,6 +277,8 @@ const styles = StyleSheet.create({
     color: 'red',
   },
   inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 16,
     backgroundColor: theme.colors.customWhite[50],
@@ -210,54 +288,78 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     elevation: 2,
   },
-  selector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  selectorText: {
+  selectedText: {
     flex: 1,
+    padding: 16,
     color: theme.colors.customGreen[500],
   },
   placeholder: {
     color: theme.colors.customGray[100],
   },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: theme.colors.customWhite[50],
-    borderWidth: 1,
-    borderColor: theme.colors.customGray[50],
-    borderRadius: 16,
-    marginTop: 4,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  scrollView: {
-    maxHeight: 200,
-  },
-  item: {
+  icon: {
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.customGray[50],
-  },
-  itemText: {
-    color: theme.colors.customGreen[500],
-  },
-  selectedItem: {
-    color: theme.colors.customGreen[300],
-    fontWeight: 'bold',
   },
   errorText: {
     color: 'red',
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: Dimensions.get('window').width * 0.9,
+    maxHeight: Dimensions.get('window').height * 0.6,
+    backgroundColor: theme.colors.customWhite[50],
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.customGray[50],
+    backgroundColor: theme.colors.customWhite[50],
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    color: theme.colors.customGreen[500],
+    padding: 0,
+  },
+  clearButton: {
+    padding: 8,
+  },
+  optionsList: {
+    maxHeight: Dimensions.get('window').height * 0.6,
+  },
+  option: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.customGray[50],
+  },
+  selectedOption: {
+    backgroundColor: theme.colors.customGreen[50],
+  },
+  optionText: {
+    color: theme.colors.customGreen[500],
+  },
+  selectedOptionText: {
+    color: theme.colors.customGreen[700],
+  },
+  noResults: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    color: theme.colors.customGray[100],
   },
 });
 

@@ -4,8 +4,19 @@ import Button from '@/component/Button';
 import { theme } from '../app/theme';
 import { typography } from '@/app/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
+import Dropdown from '@/component/Dropdown';
+import locationData from '@/data/location.json';
 
 const Test = () => {
+  const provinces = locationData.provinces.map(province => ({
+    label: province.label,
+    value: province.value
+  }));
+
+  const getCities = (provinceValue: string) => {
+    const province = locationData.provinces.find(p => p.value === provinceValue);
+    return province?.cities || [];
+  };
   // Helper function to create a section of buttons
   const renderButtonSection = (title: string) => (
     <View style={styles.section}>
