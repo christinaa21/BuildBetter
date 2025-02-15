@@ -121,6 +121,7 @@ const Login = () => {
             <View style={styles.inputContainer}>
               <Textfield
                 label="E-mail"
+                example="example@gmail.com"
                 value={formData.email}
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, email: text }));
@@ -136,6 +137,7 @@ const Login = () => {
 
               <Textfield
                 label="Kata sandi"
+                example='Password123'
                 value={formData.password}
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, password: text }));
