@@ -176,7 +176,7 @@ const Textfield: React.FC<TextfieldProps> = ({
         )}
       </Animated.View>
       
-      {localError && shouldValidate && (
+      {localError && (
         <Text style={[styles.errorText, typography.caption]}>
           {localError}
         </Text>

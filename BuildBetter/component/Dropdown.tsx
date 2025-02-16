@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   Animated,
   LayoutAnimation,
@@ -36,12 +37,12 @@ interface DropdownProps {
 
 const Dropdown: React.FC<DropdownProps> = ({
   label,
-  placeholder = 'Select an option',
+  placeholder = 'Pilih salah satu',
   options,
   value,
   onChange,
   error,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = 'Cari...',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -133,7 +134,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         </Animated.Text>
       </View>
 
-      <TouchableOpacity onPress={handlePress}>
+      <Pressable onPress={handlePress}>
         <Animated.View
           style={[
             styles.inputContainer,
@@ -156,7 +157,7 @@ const Dropdown: React.FC<DropdownProps> = ({
             style={styles.icon}
           />
         </Animated.View>
-      </TouchableOpacity>
+      </Pressable>
 
       {error && (
         <Text style={[styles.errorText, typography.caption]}>
@@ -220,24 +221,28 @@ const Dropdown: React.FC<DropdownProps> = ({
             >
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((option, index) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={index}
-                    style={[
+                    style={({ pressed }) => [
                       styles.option,
-                      option.value === value && styles.selectedOption
+                      option.value === value && styles.selectedOption,
+                      pressed && styles.pressedOption
                     ]}
                     onPress={() => handleSelect(option)}
                   >
-                    <Text 
-                      style={[
-                        styles.optionText,
-                        typography.body1,
-                        option.value === value && styles.selectedOptionText
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
+                    {({ pressed }) => (
+                      <Text 
+                        style={[
+                          styles.optionText,
+                          typography.body1,
+                          option.value === value && styles.selectedOptionText,
+                          pressed && styles.pressedOptionText
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    )}
+                  </Pressable>
                 ))
               ) : (
                 <View style={styles.noResults}>
@@ -346,13 +351,19 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.customGray[50],
   },
   selectedOption: {
-    backgroundColor: theme.colors.customGreen[50],
+    backgroundColor: theme.colors.customGreen[300],
+  },
+  pressedOption: {
+    backgroundColor: theme.colors.customGreen[600],
   },
   optionText: {
     color: theme.colors.customGreen[500],
   },
   selectedOptionText: {
-    color: theme.colors.customGreen[700],
+    color: theme.colors.customWhite[50],
+  },
+  pressedOptionText: {
+    color: theme.colors.customWhite[50],
   },
   noResults: {
     padding: 16,

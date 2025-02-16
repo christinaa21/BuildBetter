@@ -34,6 +34,9 @@ interface RegisterFormData {
 interface ValidationState {
   email: boolean;
   phone: boolean;
+  name: boolean;
+  province: boolean;
+  city: boolean;
   password: boolean;
   password2: boolean;
 }
@@ -53,6 +56,9 @@ const Register = () => {
   const [isValid, setIsValid] = useState<ValidationState>({
     email: false,
     phone: false,
+    name: false,
+    province: false,
+    city: false,
     password: false,
     password2: false,
   });
@@ -105,6 +111,21 @@ const Register = () => {
     return undefined;
   };
 
+  const validateName = (name: string) => {
+    if (!name) return 'Harap masukkan nama lengkap';
+    return undefined;
+  };
+
+  const validateProvince = (province: string) => {
+    if (!province) return 'Harap pilih provinsi';
+    return undefined;
+  };
+
+  const validateCity = (city: string) => {
+    if (!city) return 'Harap pilih kota';
+    return undefined;
+  };
+
   const validatePassword = (password: string) => {
     if (!password) return 'Harap masukkan kata sandi';
     if (password.length < 6) return 'Kata sandi harus terdiri dari setidaknya 6 karakter';
@@ -128,21 +149,26 @@ const Register = () => {
 
   const handleRegister = async () => {
     Keyboard.dismiss();
-    
-    // Add validation for province and city
-    if (!formData.province) {
-      setErrors(prev => ({ ...prev, province: 'Harap pilih provinsi' }));
-      animateButton();
-      return;
-    }
-    
-    if (!formData.city) {
-      setErrors(prev => ({ ...prev, city: 'Harap pilih kota' }));
-      animateButton();
-      return;
-    }
-    
-    if (!isValid.email || !isValid.phone || !isValid.password || !isValid.password2) {
+
+    const emailError = validateEmail(formData.email);
+    const phoneError = validatePhone(formData.phone);
+    const nameError = validateName(formData.name);
+    const provinceError = validateProvince(formData.province);
+    const cityError = validateCity(formData.city);
+    const passwordError = validatePassword(formData.password);
+    const password2Error = validatePassword2(formData.password2);
+
+    setErrors({
+      email: emailError,
+      phone: phoneError,
+      name: nameError,
+      province: provinceError,
+      city: cityError,
+      password: passwordError,
+      password2: password2Error,
+    });
+
+    if (emailError || phoneError || nameError || provinceError || cityError || passwordError || password2Error) {
       animateButton();
       return;
     }
@@ -237,6 +263,9 @@ const Register = () => {
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, name: text }));
                 }}
+                error={errors.name}
+                validate={validateName}
+                onValidation={(isValid) => handleValidation('name', isValid)}
                 autoComplete="name"
                 autoCapitalize='words'
               />
