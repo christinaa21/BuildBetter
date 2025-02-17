@@ -66,10 +66,10 @@ const OTP = () => {
       // Add your OTP resend logic here
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       
-      Alert.alert('Success', 'OTP has been resent to your phone');
+      Alert.alert('Berhasil', 'Kode OTP telah dikirimkan kembali melalui SMS.');
       setCooldown(RESEND_COOLDOWN);
     } catch (error) {
-      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+      Alert.alert('Error', 'Gagal mengirimkan ulang kode OTP. Mohon coba lagi nanti');
     } finally {
       setIsLoading(false);
     }
@@ -120,14 +120,15 @@ const OTP = () => {
                 ref={ref => {
                   if (ref) inputRefs.current[index] = ref;
                 }}
-                style={styles.otpInput}
+                style={[styles.otpInput, theme.typography.subtitle1]}
                 value={otp[index]}
                 onChangeText={text => handleOtpChange(text.replace(/[^0-9]/g, ''), index)}
                 onKeyPress={e => handleKeyPress(e, index)}
                 keyboardType="number-pad"
                 maxLength={1}
                 selectTextOnFocus
-                selectionColor={theme.colors.customGreen[300]}
+                selectionColor={theme.colors.customGreen[50]}
+                autoComplete="sms-otp"
               />
             ))}
           </View>
@@ -180,14 +181,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
     color: theme.colors.customGreen[300],
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: theme.colors.customOlive[50],
     lineHeight: 20,
   },
   otpContainer: {
@@ -201,9 +198,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     textAlign: 'center',
-    fontSize: 20,
-    fontWeight: '500',
-    color: theme.colors.customGray[100],
+    color: theme.colors.customOlive[100],
     borderColor: theme.colors.customGray[100],
     backgroundColor: theme.colors.customWhite[50],
   },
@@ -215,15 +210,12 @@ const styles = StyleSheet.create({
   },
   resendText: {
     color: theme.colors.customOlive[50],
-    fontSize: 14,
   },
   resendButton: {
     color: theme.colors.customGreen[200],
-    fontSize: 14,
-    fontWeight: '500',
   },
   resendButtonDisabled: {
-    color: theme.colors.customGray[100],
+    color: theme.colors.customGray[200],
   },
   buttonContainer: {
     marginTop: 'auto',

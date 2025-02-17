@@ -47,7 +47,6 @@ export default function RootLayout() {
         headerTintColor: theme.colors.customGreen[300],
         headerTitleAlign: 'center',
         headerTitleStyle: theme.typography.title,
-        headerLeft: () => (<MaterialIcons name="chevron-left" size={36} color={theme.colors.customGreen[300]}/>),
         }}/>
       <Stack.Screen name="otp" options = {{
         headerShown: true,
@@ -55,7 +54,6 @@ export default function RootLayout() {
         headerTintColor: theme.colors.customGreen[300],
         headerTitleAlign: 'center',
         headerTitleStyle: theme.typography.title,
-        headerLeft: () => (<MaterialIcons name="chevron-left" size={36} color={theme.colors.customGreen[300]}/>),
         }}/>
     </Stack>;
 }
