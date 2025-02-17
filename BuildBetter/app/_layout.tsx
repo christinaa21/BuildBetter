@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
 
 import {
   Poppins_400Regular,
@@ -13,8 +14,8 @@ import {
   Poppins_700Bold,
   Poppins_700Bold_Italic,
 } from "@expo-google-fonts/poppins";
+import theme from "./theme";
 
-// Prevent splash screen from hiding before fonts load
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -31,13 +32,22 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
-      SplashScreen.hideAsync(); // Hide splash screen after fonts are loaded
+      SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) return null; // Prevent rendering before fonts load
+  if (!fontsLoaded) return null;
 
   return <Stack screenOptions={{
-    headerShown: false
-  }}/>;
+      headerShown: false
+    }}>
+      <Stack.Screen name="register" options = {{
+        headerShown: true,
+        headerTitle: "Daftar Akun",
+        headerTintColor: theme.colors.customGreen[300],
+        headerTitleAlign: 'center',
+        headerTitleStyle: theme.typography.title,
+        headerLeft: () => (<MaterialIcons name="chevron-left" size={36} color={theme.colors.customGreen[300]}/>),
+        }}/>
+    </Stack>;
 }

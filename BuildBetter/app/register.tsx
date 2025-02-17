@@ -1,11 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Dimensions,
   Animated,
   Keyboard,
   KeyboardAvoidingView,
@@ -14,10 +11,9 @@ import {
   Image
 } from 'react-native';
 import Textfield from '@/component/Textfield';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import Button from '@/component/Button';
 import {theme} from './theme';
-import { typography } from './theme/typography';
 import Dropdown from '@/component/Dropdown';
 import locationData from '@/data/location.json';
 
@@ -39,6 +35,11 @@ interface ValidationState {
   city: boolean;
   password: boolean;
   password2: boolean;
+}
+
+interface PhoneValidationResult {
+  isValid: boolean;
+  formattedPhone: string;
 }
 
 const Register = () => {
@@ -104,10 +105,38 @@ const Register = () => {
     return undefined;
   };
 
-  const validatePhone = (phone: string) => {
-    const phoneRegex = /^\+?([0-9]{1,4})\)?[-. ]?([0-9]{1,4})[-. ]?([0-9]{1,9})$/;
-    if (!phone) return 'Harap masukkan nomor telepon';
-    if (!phoneRegex.test(phone)) return 'Format nomor telepon salah';
+  const formatPhoneNumber = (phone: string): string => {
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    const numberWithoutPrefix = cleanPhone.replace(/^(\+62|0)/, '');
+    return '+62' + numberWithoutPrefix;
+  };  
+
+  const validatePhone = (phone: string): string | undefined => {
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    
+    if (!cleanPhone) {
+      return 'Harap masukkan nomor telepon';
+    }
+
+    if (!cleanPhone.match(/^(\+62|0)/)) {
+      return 'Nomor telepon harus dimulai dengan +62 atau 0';
+    }
+
+    const numberWithoutPrefix = cleanPhone.replace(/^(\+62|0)/, '');
+    
+    if (numberWithoutPrefix[0] !== '8') {
+      return 'Nomor telepon harus dimulai dengan 8 setelah kode negara/0';
+    }
+
+    if (numberWithoutPrefix.length < 10 || numberWithoutPrefix.length > 13) {
+      return 'Panjang nomor telepon tidak valid (harap masukkan 10-13 digit)';
+    }
+
+    const secondDigit = numberWithoutPrefix[1];
+    if (!['1', '2', '3', '5', '7', '8', '9'].includes(secondDigit)) {
+      return 'Prefix nomor telepon tidak valid';
+    }
+
     return undefined;
   };
 
@@ -172,6 +201,12 @@ const Register = () => {
       animateButton();
       return;
     }
+    
+    const formattedPhone = formatPhoneNumber(formData.phone);
+    const finalFormData = {
+      ...formData,
+      phone: formattedPhone
+    };
 
     setIsLoading(true);
     try {
@@ -252,7 +287,13 @@ const Register = () => {
                 }}
                 error={errors.phone}
                 validate={validatePhone}
-                onValidation={(isValid) => handleValidation('phone', isValid)}
+                onValidation={(isValid) => {
+                  handleValidation('phone', isValid);
+                  if (isValid) {
+                    const formattedPhone = formatPhoneNumber(formData.phone);
+                    setFormData(prev => ({ ...prev, phone: formattedPhone }));
+                  }
+                }}
                 keyboardType="phone-pad"
               />
 
@@ -323,7 +364,7 @@ const Register = () => {
               />
             </View>
 
-            <Animated.View style={{ transform: [{ translateX: buttonAnimation }] }}>
+            <Animated.View style={[{ transform: [{ translateX: buttonAnimation }] }, styles.button]}>
               <Button
                 title={isLoading ? 'Loading...' : 'Register'}
                 variant="primary"
@@ -360,6 +401,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 24,
   },
+  button: {
+    marginBottom: 32,
+  }
 });
 
 export default Register;
