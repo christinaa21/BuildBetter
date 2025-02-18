@@ -78,7 +78,7 @@ const OTP = () => {
   const handleVerify = async () => {
     const otpString = otp.join('');
     if (otpString.length !== OTP_LENGTH) {
-      Alert.alert('Error', 'Please enter complete OTP code');
+      Alert.alert('Error', 'Mohon masukkan kode OTP');
       return;
     }
 
@@ -90,7 +90,7 @@ const OTP = () => {
       // If verification successful, navigate to next screen
       router.push('/otp-success');
     } catch (error) {
-      Alert.alert('Error', 'Invalid OTP code. Please try again.');
+      Alert.alert('Error', 'Kode OTP salah. Mohon masukkan kode OTP yang benar.');
       // Clear OTP fields on error
       setOtp(Array(OTP_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
