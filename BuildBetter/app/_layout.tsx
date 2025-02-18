@@ -55,5 +55,12 @@ export default function RootLayout() {
         headerTitleAlign: 'center',
         headerTitleStyle: theme.typography.title,
         }}/>
+      <Stack.Screen name="forgot-password" options = {{
+        headerShown: true,
+        headerTitle: "Lupa Kata Sandi",
+        headerTintColor: theme.colors.customGreen[300],
+        headerTitleAlign: 'center',
+        headerTitleStyle: theme.typography.title,
+        }}/>
     </Stack>;
 }

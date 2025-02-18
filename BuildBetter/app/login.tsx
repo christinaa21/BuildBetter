@@ -177,6 +177,7 @@ const Login = () => {
                 title={isLoading ? 'Loading...' : 'Login'}
                 variant="primary"
                 onPress={handleLogin}
+                disabled={isLoading}
               />
             </Animated.View>
 

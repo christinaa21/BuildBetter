@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,15 +15,21 @@ const REDIRECT_DELAY = 3;
 const OTPSuccess = () => {
   const [countdown, setCountdown] = useState(REDIRECT_DELAY);
   const router = useRouter();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const redirectInProgress = useRef(false);
 
   useEffect(() => {
-    // Start countdown timer
-    const timer = setInterval(() => {
+    // Set up the main redirect timeout
+    timeoutRef.current = setTimeout(() => {
+      redirectInProgress.current = true;
+      router.replace('/login');
+    }, REDIRECT_DELAY * 1000);
+
+    // Set up the countdown timer
+    const intervalId = setInterval(() => {
       setCountdown(prevCount => {
         if (prevCount <= 1) {
-          clearInterval(timer);
-          // Navigate to login page when countdown reaches 0
-          router.replace('/login');
+          clearInterval(intervalId);
           return 0;
         }
         return prevCount - 1;
@@ -31,8 +37,13 @@ const OTPSuccess = () => {
     }, 1000);
 
     // Cleanup timer on unmount
-    return () => clearInterval(timer);
-  }, [router]);
+    return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        clearInterval(intervalId);
+      };
+    }, [router]);
 
   return (
     <SafeAreaView style={styles.container}>

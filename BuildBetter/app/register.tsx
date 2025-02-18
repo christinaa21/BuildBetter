@@ -369,6 +369,7 @@ const Register = () => {
                 title={isLoading ? 'Loading...' : 'Register'}
                 variant="primary"
                 onPress={handleRegister}
+                disabled={isLoading}
               />
             </Animated.View>
           </View>
