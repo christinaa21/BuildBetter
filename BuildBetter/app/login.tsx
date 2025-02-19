@@ -95,7 +95,7 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
-      router.push('/test');
+      router.push('/(tabs)/home');
     }
   };
 
