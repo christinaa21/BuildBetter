@@ -17,7 +17,6 @@ import Textfield from '@/component/Textfield';
 import { Link, useRouter } from 'expo-router';
 import Button from '@/component/Button';
 import {theme} from './theme';
-import { typography } from './theme/typography';
 
 interface LoginFormData {
   email: string;
@@ -168,7 +167,7 @@ const Login = () => {
                 style={styles.forgotPasswordContainer}
                 activeOpacity={0.7}
               >
-                <Link style={[typography.body2, styles.forgotPassword]} href='/forgot-password'>Lupa kata sandi?</Link>
+                <Link style={[theme.typography.body2, styles.forgotPassword]} href='/forgot-password'>Lupa kata sandi?</Link>
               </TouchableOpacity>
             </View>
 
@@ -182,9 +181,9 @@ const Login = () => {
             </Animated.View>
 
             <View style={styles.registerContainer}>
-              <Text style={[typography.body2, styles.registerText]}>Belum punya akun? </Text>
+              <Text style={[theme.typography.body2, styles.registerText]}>Belum punya akun? </Text>
               <TouchableOpacity activeOpacity={0.7}>
-                <Link style={[typography.subtitle2, styles.registerLink]} href='/register'>Daftar disini</Link>
+                <Link style={[theme.typography.subtitle2, styles.registerLink]} href='/register'>Daftar disini</Link>
               </TouchableOpacity>
             </View>
           </View>
