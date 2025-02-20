@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import theme from '@/app/theme';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ProgressStepsProps {
   steps: any[];
@@ -20,7 +20,7 @@ const ProgressSteps: React.FC<ProgressStepsProps> = ({ steps, currentStep, activ
               key={index}
               style={[
                 { color: index <= currentStep ? activeColor : inactiveColor },
-                theme.typography.caption
+                theme.typography.subtitle2
               ]}>
               {index + 1}
             </Text>
@@ -31,11 +31,13 @@ const ProgressSteps: React.FC<ProgressStepsProps> = ({ steps, currentStep, activ
       <View style={styles.stepsContainer}>
         {steps.map((_, index) => (
           <React.Fragment key={index}>
-            <MaterialIcons
-              name={index <= currentStep ? 'check-circle' : 'circle'}
-              color={index <= currentStep ? activeColor : inactiveColor}
-              size={24}
-            />
+            <View style={styles.iconContainer}>
+              <Ionicons
+                name={index <= currentStep ? 'checkmark-circle' : 'ellipse'}
+                color={index <= currentStep ? activeColor : inactiveColor}
+                size={24}
+              />
+            </View>
 
             {/* Connector line */}
             {index < steps.length - 1 && (
@@ -63,7 +65,9 @@ const styles = StyleSheet.create({
   stepsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  iconContainer: {
+    marginHorizontal: -3,
   },
   line: {
     flex: 1,
@@ -72,9 +76,8 @@ const styles = StyleSheet.create({
   numbersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginHorizontal: 2,
+    paddingBottom: 2,
+    paddingHorizontal: 6,
   },
 });
 
