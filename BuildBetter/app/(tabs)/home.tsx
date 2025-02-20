@@ -17,6 +17,7 @@ const MAX_TRANSLATE_Y = -SCREEN_HEIGHT + 320;
 
 export default function HomeScreen() {
   const name = 'Yulia';
+  const router = useRouter();
   const translateY = useSharedValue(0);
   const context = useSharedValue({ y: 0 });
 
@@ -56,7 +57,7 @@ export default function HomeScreen() {
       <ImageBackground source={require('@/assets/images/house.png')} style={styles.image} resizeMode="cover">
         <View style={styles.heroSection}>
           <View style={styles.headerContent}>
-            <Text style={[theme.typography.title, styles.greeting]}>Hai, {name}!</Text>
+            <Text style={[theme.typography.title, styles.greeting]}>Hai {name}!</Text>
             <Text style={[theme.typography.body1, styles.subheading]}>
               Mau bangun rumah seperti apa hari ini?
             </Text>
@@ -66,7 +67,7 @@ export default function HomeScreen() {
             <Button
               title="BuildPlan"
               variant="primary"
-              onPress={() => useRouter().push('/buildplan/screening')}
+              onPress={() => router.push('../buildplan/onboarding')}
               style={styles.buildPlanButton}
             />
             <Link style={[theme.typography.caption, styles.buttonCaption]} href="../buildplan/saved">
