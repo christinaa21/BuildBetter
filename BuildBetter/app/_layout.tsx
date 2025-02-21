@@ -79,6 +79,16 @@ export default function RootLayout() {
           headerTitleStyle: theme.typography.title,
         }}
       />
+      <Stack.Screen 
+        name="buildplan/screening" 
+        options={{
+          headerShown: true,
+          headerTitle: "BuildPlan",
+          headerTintColor: theme.colors.customGreen[300],
+          headerTitleAlign: 'center',
+          headerTitleStyle: theme.typography.title,
+        }}
+      />
     </Stack>
   );
 }

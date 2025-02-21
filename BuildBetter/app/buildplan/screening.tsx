@@ -1,37 +1,118 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import theme from '../theme';
+import { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import LocationDimension from './components/LocationDimension';
+import EnvironmentCondition from './components/EnvironmentCondition';
+import DesignPreference from './components/DesignPreference';
 import ProgressSteps from '@/component/ProgressSteps';
+import theme from '../theme';
 
-export default function Screening() {
-  const steps = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5'];
-  const currentStep = 1;
+interface FormData {
+  location: {
+    province: string;
+    city: string;
+    shape: string;
+    area: string;
+  };
+  environment: {
+    land_condition: string;
+    soil_condition: string;
+    flood: string;
+    wind_direction: string;
+  };
+  design: any;
+}
+
+const Screening = () => {
+  const step = ['Step 1', 'Step 2', 'Step 3']
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<FormData>({
+    location: {
+      province: '',
+      city: '',
+      shape: '',
+      area: '',
+    },
+    environment: {
+      land_condition: '',
+      soil_condition: '',
+      flood: '',
+      wind_direction: '',
+    },
+    design: {}
+  });
+
+  const steps = [
+    {
+      title: 'Lokasi dan Dimensi Lahan',
+      component: LocationDimension
+    },
+    {
+      title: 'Kondisi Lingkungan',
+      component: EnvironmentCondition
+    },
+    {
+      title: 'Preferensi Desain Rumah',
+      component: DesignPreference
+    }
+  ] as const;
+
+  const handleNext = (stepData: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [getCurrentStepKey()]: stepData
+    }));
+
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      // Handle form completion
+      handleFormComplete();
+    }
+  };
+
+  const handleBack = (stepData: any) => {
+    if (currentStep > 0) {
+      setFormData(prev => ({
+        ...prev,
+        [getCurrentStepKey()]: stepData
+      }));
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleFormComplete = () => {
+    // Handle the complete form data
+    console.log('Complete form data:', formData);
+    // Add your submission logic here
+  };
+
+  const getCurrentStepKey = (): keyof FormData => {
+    return ['location', 'environment', 'design'][currentStep] as keyof FormData;
+  };
+
+  const CurrentStepComponent = steps[currentStep].component;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <ProgressSteps
-          steps={steps} 
-          currentStep={currentStep}
-        />
-        <Text style={styles.text}>Saved</Text>
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <ProgressSteps
+        steps={step}
+        currentStep={currentStep}
+      />
+      
+      <CurrentStepComponent
+        data={formData[getCurrentStepKey()]}
+        onNext={handleNext}
+        onBack={handleBack}
+      />
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  text: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 16,
-    color: theme.colors.customOlive[50],
-  },
+  }
 });
+
+export default Screening;

@@ -59,8 +59,8 @@ const ProgressSteps: React.FC<ProgressStepsProps> = ({ steps, currentStep, activ
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   stepsContainer: {
     flexDirection: 'row',
