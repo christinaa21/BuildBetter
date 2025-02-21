@@ -19,7 +19,11 @@ interface FormData {
     flood: string;
     wind_direction: string;
   };
-  design: any;
+  design: {
+    design_style: string;
+    floor: string;
+    room: string;
+  };
 }
 
 const Screening = () => {
@@ -38,7 +42,11 @@ const Screening = () => {
       flood: '',
       wind_direction: '',
     },
-    design: {}
+    design: {
+      design_style: '',
+      floor: '',
+      room: '',
+    }
   });
 
   const steps = [

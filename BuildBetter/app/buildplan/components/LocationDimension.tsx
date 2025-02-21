@@ -53,6 +53,16 @@ const LocationDimension: React.FC<LocationDimensionProps> = ({ data, onNext, onB
     value: province.value
   }));
 
+  useEffect(() => {
+    if (formData.province) {
+      const provinceCities = getCities(formData.province).map(city => ({
+        label: city.label,
+        value: city.value
+      }));
+      setCities(provinceCities);
+    }
+  }, [formData.province]);
+
   const handleProvinceChange = (provinceValue: string) => {
     const provinceCities = getCities(provinceValue).map(city => ({
       label: city.label,
@@ -62,7 +72,7 @@ const LocationDimension: React.FC<LocationDimensionProps> = ({ data, onNext, onB
     setFormData(prev => ({
       ...prev,
       province: provinceValue,
-      city: '',
+      city: '', // Reset city when province changes
     }));
     setCities(provinceCities);
   };
@@ -103,13 +113,6 @@ const LocationDimension: React.FC<LocationDimensionProps> = ({ data, onNext, onB
   const validateCity = (city: string) => {
     if (!city) return 'Harap pilih kota';
     return undefined;
-  };
-
-  const handleValidation = (field: keyof ValidationState, isFieldValid: boolean) => {
-    setIsValid(prev => ({
-      ...prev,
-      [field]: isFieldValid,
-    }));
   };
 
   const handleData = async () => {
@@ -198,9 +201,9 @@ const LocationDimension: React.FC<LocationDimensionProps> = ({ data, onNext, onB
                 onChange={handleCityChange}
                 error={errors.city}
               />
-              </View>
+            </View>
 
-              <View style={styles.radioContainer}>
+            <View style={styles.radioContainer}>
               <RadioGroup
                 label="Bentuk Lahan"
                 options={[

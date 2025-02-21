@@ -12,6 +12,7 @@ import {
 import Button from '@/component/Button';
 import RadioGroup from '@/component/RadioGroup';
 import theme from '@/app/theme';
+import Tooltip from '@/component/Tooltip';
 
 interface EnvironmentConditionProps {
   data: any;
@@ -118,18 +119,23 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
                 onChange={handleLandConditionChange}
               />
 
-              <RadioGroup
-                label="Kondisi Tanah"
-                options={[
-                  {"label": "Lahan berbatu", "value": "Lahan berbatu"},
-                  {"label": "Lahan basah atau lembab", "value": "Lahan basah atau lembab"},
-                  {"label": "Lahan berpasir", "value": "Lahan berpasir"},
-                  {"label": "Lahan berawa atau rawan banjir", "value": "Lahan berawa atau rawan banjir"},
-                  {"label": "Lahan berbukit", "value": "Lahan berbukit"}
-                ]}
-                value={formData.soil_condition}
-                onChange={handleSoilConditionChange}
-              />
+              <View style={styles.labelContainer}>
+                <RadioGroup
+                  label="Kondisi Tanah"
+                  options={[
+                    {"label": "Lahan berbatu", "value": "Lahan berbatu"},
+                    {"label": "Lahan berpasir", "value": "Lahan berpasir"},
+                    {"label": "Lahan berawa atau rawan banjir", "value": "Lahan berawa atau rawan banjir"},
+                    {"label": "Lahan berbukit", "value": "Lahan berbukit"}
+                  ]}
+                  value={formData.soil_condition}
+                  onChange={handleSoilConditionChange}
+                />
+                <Tooltip
+                  content="Pilih kondisi tanah yang paling mendominasi di lahan Anda. Ini akan mempengaruhi rekomendasi pondasi dan struktur bangunan. Sebagai informasi, kondisi tanah yang paling umum adalah lahan berbatu."
+                  position="left"
+                />
+              </View>
               
               <RadioGroup
                 label="Apakah daerah di sekitarmu rawan banjir?"
@@ -141,17 +147,40 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
                 onChange={handleFloodChange}
               />
 
-              <RadioGroup
-                label="Pintu masuk rumahmu akan menghadap ke arah mana?"
-                options={[
-                  {"label": "Utara", "value": "Utara"},
-                  {"label": "Timur", "value": "Timur"},
-                  {"label": "Selatan", "value": "Selatan"},
-                  {"label": "Barat", "value": "Barat"}
-                ]}
-                value={formData.wind_direction}
-                onChange={handleWindDirectionChange}
-              />
+              <View style={styles.labelContainer}>
+                <RadioGroup
+                  label="Pintu masuk rumahmu akan menghadap ke arah mana?"
+                  options={[
+                    {"label": "Utara", "value": "Utara"},
+                    {"label": "Timur", "value": "Timur"},
+                    {"label": "Selatan", "value": "Selatan"},
+                    {"label": "Barat", "value": "Barat"}
+                  ]}
+                  value={formData.wind_direction}
+                  onChange={handleWindDirectionChange}
+                />
+                <Tooltip
+                  content={
+                    <>
+                      <Text style={styles.tooltipText}>
+                        Cara mengetahui arah mata angin:
+                      </Text>
+                      <Text style={styles.tooltipText}>
+                        1. Buka aplikasi kompas di HP Anda.
+                      </Text>
+                      <Text style={styles.tooltipText}>
+                        2.Letakkan HP di atas permukaan datar.
+                      </Text>
+                      <Text style={styles.tooltipText}>
+                        3.Berdiri ke arah yang akan menjadi arah hadap rumah/pintu masuk.
+                      </Text>
+                      <Text style={styles.tooltipText}>
+                        4.Baca arah yang ditunjukkan oleh jarum kompas. Itulah arah mata angin yang akan menjadi arah rumah Anda.
+                      </Text>
+                    </>}
+                  position="left"
+                />
+              </View>
             </View>
 
             <View style={styles.buttonContainer}>
@@ -221,7 +250,17 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-  }
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tooltipText: {
+    color: theme.colors.customWhite[50],
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });
 
 export default EnvironmentCondition;
