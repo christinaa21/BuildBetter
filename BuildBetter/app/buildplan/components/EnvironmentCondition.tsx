@@ -23,7 +23,7 @@ interface EnvironmentConditionProps {
 interface EnvironmentConditionData {
   land_condition: string;
   soil_condition: string;
-  flood: string;
+  flood: boolean;
   wind_direction: string;
 }
 
@@ -31,7 +31,7 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
   const [formData, setFormData] = useState<EnvironmentConditionData>({
     land_condition: data?.land_condition || 'Rata',
     soil_condition: data?.soil_condition || 'Lahan berbatu',
-    flood: data?.flood || 'Tidak',
+    flood: data?.flood || false,
     wind_direction: data?.wind_direction || 'Utara',
   });
 
@@ -49,7 +49,7 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
     }));
   };
 
-  const handleFloodChange = (floodValue: string) => {
+  const handleFloodChange = (floodValue: boolean) => {
     setFormData(prev => ({
       ...prev,
       flood: floodValue,
@@ -140,8 +140,8 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
               <RadioGroup
                 label="Apakah daerah di sekitarmu rawan banjir?"
                 options={[
-                  {"label": "Ya", "value": "Ya"},
-                  {"label": "Tidak", "value": "Tidak"}
+                  {"label": "Ya", "value": true},
+                  {"label": "Tidak", "value": false}
                 ]}
                 value={formData.flood}
                 onChange={handleFloodChange}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, ReactNode } from 'react';
 import {
   View,
   Text,
@@ -28,11 +28,12 @@ if (Platform.OS === 'android') {
 interface DropdownProps {
   label?: string;
   placeholder?: string;
-  options: { label: string; value: any }[];
+  options: { label: string; value: any; additional?: React.ReactNode }[];
   value?: any;
   onChange: (value: any) => void;
   error?: string;
   searchPlaceholder?: string;
+  maxHeight?: number;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -43,6 +44,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   onChange,
   error,
   searchPlaceholder = 'Cari...',
+  maxHeight= 0.6,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -177,7 +179,7 @@ const Dropdown: React.FC<DropdownProps> = ({
           onPress={handleClose}
         >
           <View 
-            style={styles.modalContent} 
+            style={[styles.modalContent, {maxHeight: Dimensions.get('window').height * maxHeight}]} 
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.searchContainer}>
@@ -216,7 +218,7 @@ const Dropdown: React.FC<DropdownProps> = ({
             </View>
             
             <ScrollView 
-              style={styles.optionsList}
+              style={{maxHeight: Dimensions.get('window').height * maxHeight}}
               keyboardShouldPersistTaps="handled"
             >
               {filteredOptions.length > 0 ? (
@@ -231,16 +233,19 @@ const Dropdown: React.FC<DropdownProps> = ({
                     onPress={() => handleSelect(option)}
                   >
                     {({ pressed }) => (
-                      <Text 
-                        style={[
-                          styles.optionText,
-                          typography.body1,
-                          option.value === value && styles.selectedOptionText,
-                          pressed && styles.pressedOptionText
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
+                      <>
+                        <Text 
+                          style={[
+                            styles.optionText,
+                            typography.body1,
+                            option.value === value && styles.selectedOptionText,
+                            pressed && styles.pressedOptionText
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        {option.additional}
+                      </>
                     )}
                   </Pressable>
                 ))
@@ -316,7 +321,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: Dimensions.get('window').width * 0.9,
-    maxHeight: Dimensions.get('window').height * 0.6,
     backgroundColor: theme.colors.customWhite[50],
     borderRadius: 16,
     overflow: 'hidden',
@@ -341,9 +345,6 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 8,
-  },
-  optionsList: {
-    maxHeight: Dimensions.get('window').height * 0.6,
   },
   option: {
     padding: 16,

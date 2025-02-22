@@ -16,13 +16,13 @@ interface FormData {
   environment: {
     land_condition: string;
     soil_condition: string;
-    flood: string;
+    flood: boolean;
     wind_direction: string;
   };
   design: {
     design_style: string;
-    floor: string;
-    room: string;
+    floor: number;
+    room: number;
   };
 }
 
@@ -39,13 +39,13 @@ const Screening = () => {
     environment: {
       land_condition: '',
       soil_condition: '',
-      flood: '',
+      flood: false,
       wind_direction: '',
     },
     design: {
       design_style: '',
-      floor: '',
-      room: '',
+      floor: 0,
+      room: 0,
     }
   });
 
@@ -64,17 +64,28 @@ const Screening = () => {
     }
   ] as const;
 
-  const handleNext = (stepData: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [getCurrentStepKey()]: stepData
-    }));
+  const submitFormData = async (data: FormData) => {
+    console.log('Submitting form data:', data);
+    // Add your API call or other submission logic here
+  };
 
+  const handleNext = (stepData: any) => {
     if (currentStep < steps.length - 1) {
+      setFormData(prev => ({
+        ...prev,
+        [getCurrentStepKey()]: stepData
+      }));
       setCurrentStep(prev => prev + 1);
     } else {
-      // Handle form completion
-      handleFormComplete();
+      setFormData(prev => {
+        const newFormData = {
+          ...prev,
+          [getCurrentStepKey()]: stepData
+        };
+        console.log('Complete form data:', newFormData);
+        submitFormData(newFormData);
+        return newFormData;
+      });
     }
   };
 

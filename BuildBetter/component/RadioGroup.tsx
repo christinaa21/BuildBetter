@@ -4,14 +4,14 @@ import theme from '@/app/theme';
 
 interface RadioOption {
   label: string;
-  value: string;
+  value: any;
 }
 
 interface RadioGroupProps {
   label: string;
   options: RadioOption[];
-  value: string;
-  onChange: (value: string) => void;
+  value: any;
+  onChange: (value: any) => void;
   error?: string;
 }
 

@@ -7,7 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text
+  Text,
+  Image
 } from 'react-native';
 import Button from '@/component/Button';
 import Dropdown from '@/component/Dropdown';
@@ -22,15 +23,15 @@ interface DesignPreferenceProps {
 
 interface DesignPreferenceData {
   design_style: string;
-  floor: string;
-  room: string;
+  floor: number;
+  room: number;
 }
 
 const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBack }) => {
   const [formData, setFormData] = useState<DesignPreferenceData>({
     design_style: data?.design_style || 'Minimalis',
-    floor: data?.floor || '2',
-    room: data?.room || '2',
+    floor: data?.floor || 2,
+    room: data?.room || 2,
   });
 
   const handleDesignStyleChange = (designStyleValue: string) => {
@@ -40,14 +41,14 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
     }));
   };
 
-  const handleFloorChange = (floorValue: string) => {
+  const handleFloorChange = (floorValue: number) => {
     setFormData(prev => ({
       ...prev,
       floor: floorValue,
     }));
   };
 
-  const handleRoomChange = (roomValue: string) => {
+  const handleRoomChange = (roomValue: number) => {
     setFormData(prev => ({
       ...prev,
       room: roomValue,
@@ -105,11 +106,32 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
                 placeholder="Pilih gaya rumah"
                 searchPlaceholder='Cari gaya rumah...'
                 options={[
-                  {"label": "Minimalis", "value": "Minimalis"},
-                  {"label": "Klasik", "value": "Klasik"},
-                  {"label": "Industrialis", "value": "Industrialis"},
-                  {"label": "Skandinavia", "value": "Skandinavia"}
+                  {"label": "Minimalis", "value": "Minimalis", "additional":
+                    <View style={styles.imageContainer}>
+                      <Image source={require('@/assets/images/minimalis1.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/minimalis2.jpg')} style={styles.image}/>
+                    </View>
+                    },
+                  {"label": "Klasik", "value": "Klasik", "additional":
+                    <View style={styles.imageContainer}>
+                      <Image source={require('@/assets/images/klasik1.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/klasik2.jpg')} style={styles.image}/>
+                    </View>
+                    },
+                  {"label": "Industrialis", "value": "Industrialis", "additional":
+                    <View style={styles.imageContainer}>
+                      <Image source={require('@/assets/images/industrialis1.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/industrialis2.jpg')} style={styles.image}/>
+                    </View>
+                    },
+                  {"label": "Skandinavia", "value": "Skandinavia", "additional":
+                    <View style={styles.imageContainer}>
+                      <Image source={require('@/assets/images/skandinavia1.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/skandinavia2.jpg')} style={styles.image}/>
+                    </View>
+                    },
                 ]}
+                maxHeight={0.75}
                 value={formData.design_style}
                 onChange={handleDesignStyleChange}
               />
@@ -119,10 +141,10 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               <RadioGroup
                 label="Jumlah Lantai yang Akan Dibangun"
                 options={[
-                  {"label": "1", "value": "1"},
-                  {"label": "2", "value": "2"},
-                  {"label": "3", "value": "3"},
-                  {"label": "4", "value": "4"}
+                  {"label": "1", "value": 1},
+                  {"label": "2", "value": 2},
+                  {"label": "3", "value": 3},
+                  {"label": "4", "value": 4}
                 ]}
                 value={formData.floor}
                 onChange={handleFloorChange}
@@ -131,10 +153,10 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               <RadioGroup
                 label="Jumlah Kamar yang Akan Dibuat"
                 options={[
-                  {"label": "1", "value": "1"},
-                  {"label": "2", "value": "2"},
-                  {"label": "3", "value": "3"},
-                  {"label": "4", "value": "4"}
+                  {"label": "1", "value": 1},
+                  {"label": "2", "value": 2},
+                  {"label": "3", "value": 3},
+                  {"label": "4", "value": 4}
                 ]}
                 value={formData.room}
                 onChange={handleRoomChange}
@@ -152,7 +174,7 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               </View>
               <View style={styles.buttonWrapper}>
                 <Button
-                  title="Selanjutnya"
+                  title="Selesai"
                   variant="primary"
                   onPress={handleNext}
                   style={styles.button}
@@ -199,6 +221,17 @@ const styles = StyleSheet.create({
   },
   radioContainer: {
     marginBottom: 24,
+  },
+  imageContainer: {
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+    paddingTop: 4,
+  },
+  image: {
+    width: 140,
+    height: 140,
+    alignSelf: 'center',
+    objectFit: 'cover'
   },
   buttonContainer: {
     flexDirection: 'row',
