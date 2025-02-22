@@ -5,6 +5,7 @@ import EnvironmentCondition from './components/EnvironmentCondition';
 import DesignPreference from './components/DesignPreference';
 import ProgressSteps from '@/component/ProgressSteps';
 import theme from '../theme';
+import { useRouter } from 'expo-router';
 
 interface FormData {
   location: {
@@ -27,6 +28,7 @@ interface FormData {
 }
 
 const Screening = () => {
+  const router = useRouter();
   const step = ['Step 1', 'Step 2', 'Step 3']
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
@@ -67,6 +69,7 @@ const Screening = () => {
   const submitFormData = async (data: FormData) => {
     console.log('Submitting form data:', data);
     // Add your API call or other submission logic here
+    router.push('./result');
   };
 
   const handleNext = (stepData: any) => {
