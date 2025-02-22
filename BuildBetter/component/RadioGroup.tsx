@@ -61,6 +61,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 8,
     marginBottom: 8,
+    maxWidth: 300,
   },
   label: {
     color: theme.colors.customOlive[50],

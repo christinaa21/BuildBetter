@@ -89,7 +89,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left' }) => {
     return (
       <View style={tooltipStyle}>
         {typeof content === 'string' ? (
-            <Text style={styles.tooltipText}>{content}</Text>
+            <Text style={[theme.typography.body2, styles.tooltipText]}>{content}</Text>
         ) : (
             content
         )}
@@ -127,7 +127,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   iconContainer: {
-    padding: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8
   },
   modalOverlay: {
     flex: 1,
@@ -135,7 +136,6 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     color: theme.colors.customWhite[50],
-    fontSize: 14,
     lineHeight: 20,
   },
 });

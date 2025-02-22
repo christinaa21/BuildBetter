@@ -162,20 +162,20 @@ const EnvironmentCondition: React.FC<EnvironmentConditionProps> = ({ data, onNex
                 <Tooltip
                   content={
                     <>
-                      <Text style={styles.tooltipText}>
+                      <Text style={[theme.typography.body2, styles.tooltipText]}>
                         Cara mengetahui arah mata angin:
                       </Text>
-                      <Text style={styles.tooltipText}>
+                      <Text style={[theme.typography.body2, styles.tooltipText]}>
                         1. Buka aplikasi kompas di HP Anda.
                       </Text>
-                      <Text style={styles.tooltipText}>
-                        2.Letakkan HP di atas permukaan datar.
+                      <Text style={[theme.typography.body2, styles.tooltipText]}>
+                        2. Letakkan HP di atas permukaan datar.
                       </Text>
-                      <Text style={styles.tooltipText}>
-                        3.Berdiri ke arah yang akan menjadi arah hadap rumah/pintu masuk.
+                      <Text style={[theme.typography.body2, styles.tooltipText]}>
+                        3. Berdiri ke arah yang akan menjadi arah hadap rumah/pintu masuk.
                       </Text>
-                      <Text style={styles.tooltipText}>
-                        4.Baca arah yang ditunjukkan oleh jarum kompas. Itulah arah mata angin yang akan menjadi arah rumah Anda.
+                      <Text style={[theme.typography.body2, styles.tooltipText]}>
+                        4. Baca arah yang ditunjukkan oleh jarum kompas. Itulah arah mata angin yang akan menjadi arah rumah Anda.
                       </Text>
                     </>}
                   position="left"
@@ -253,12 +253,10 @@ const styles = StyleSheet.create({
   },
   labelContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
   },
   tooltipText: {
     color: theme.colors.customWhite[50],
-    fontSize: 14,
     lineHeight: 20,
   },
 });
