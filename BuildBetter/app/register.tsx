@@ -156,8 +156,26 @@ const Register = () => {
   };
 
   const validatePassword = (password: string) => {
-    if (!password) return 'Harap masukkan kata sandi';
-    if (password.length < 6) return 'Kata sandi harus terdiri dari setidaknya 6 karakter';
+    if (!password)
+        return 'Harap masukkan kata sandi';
+
+    if (password.length < 8)
+        return 'Kata sandi harus terdiri dari setidaknya 8 karakter';
+
+    if (!/[A-Z]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 huruf kapital';
+
+    if (!/[a-z]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 huruf kecil';
+
+    if (!/\d/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 angka';
+
+    if (!/[!@#$%^&*(),.?":{}|<>_-]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 karakter khusus';
+    
+    if (/\s/.test(password))
+        return 'Kata sandi tidak boleh mengandung spasi';
     return undefined;
   };
 
@@ -333,7 +351,7 @@ const Register = () => {
 
               <Textfield
                 label="Kata sandi"
-                example='Password123'
+                example='Password123!'
                 value={formData.password}
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, password: text }));

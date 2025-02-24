@@ -51,7 +51,7 @@ const Login = () => {
 
   const validatePassword = (password: string) => {
     if (!password) return 'Harap masukkan kata sandi';
-    if (password.length < 6) return 'Kata sandi harus terdiri dari setidaknya 6 karakter';
+    if (password.length < 8) return 'Kata sandi harus terdiri dari setidaknya 8 karakter';
     return undefined;
   };
 
@@ -94,7 +94,7 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
-      router.push('/(tabs)/home');
+      router.replace('/(tabs)/home');
     }
   };
 
@@ -150,7 +150,7 @@ const Login = () => {
 
               <Textfield
                 label="Kata sandi"
-                example='Password123'
+                example='Password123!'
                 value={formData.password}
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, password: text }));

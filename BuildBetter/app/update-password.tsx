@@ -17,26 +17,43 @@ import { theme } from './theme';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const router = useRouter();
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) return 'Harap masukkan email';
-    if (!emailRegex.test(email)) return 'Format email salah';
+  const validatePassword = (password: string) => {
+    if (!password)
+        return 'Harap masukkan kata sandi';
+
+    if (password.length < 8)
+        return 'Kata sandi harus terdiri dari setidaknya 8 karakter';
+
+    if (!/[A-Z]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 huruf kapital';
+
+    if (!/[a-z]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 huruf kecil';
+
+    if (!/\d/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 angka';
+
+    if (!/[!@#$%^&*(),.?":{}|<>_-]/.test(password))
+        return 'Kata sandi harus mengandung minimal 1 karakter khusus';
+    
+    if (/\s/.test(password))
+        return 'Kata sandi tidak boleh mengandung spasi';
     return undefined;
   };
 
-  const handleSendLink = async () => {
+  const handleUpdatePassword = async () => {
     Keyboard.dismiss();
 
-    const emailError = validateEmail(email);
-    setError(emailError);
+    const passwordError = validatePassword(password);
+    setError(passwordError);
 
-    if (emailError) {
+    if (passwordError) {
       return;
     }
 
@@ -44,12 +61,13 @@ const ForgotPassword = () => {
     try {
       // Simulate API call for sending reset link
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setEmailSent(true);
+      console.log('Change password successful', password);
+      setPasswordChanged(true);
     } catch (error) {
+      console.error('Change password failed', error);
       Alert.alert(
         'Error',
-        'Gagal mengirim link reset kata sandi. Silakan coba lagi.'
+        'Gagal mereset kata sandi. Silakan coba lagi.'
       );
     } finally {
       setIsLoading(false);
@@ -57,7 +75,7 @@ const ForgotPassword = () => {
   };
 
   const handleBackToLogin = () => {
-    router.replace('/update-password');
+    router.replace('/login');
   };
 
   return (
@@ -71,38 +89,37 @@ const ForgotPassword = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {!emailSent ? (
+            {!passwordChanged ? (
               <>
                 <View style={styles.headerContainer}>
                   <MaterialIcons name="lock-reset" size={120} color={theme.colors.customGreen[300]} />
-                  <Text style={[styles.header, theme.typography.title]}>Lupa Kata Sandi?</Text>
+                  <Text style={[styles.header, theme.typography.title]}>Reset Kata Sandi</Text>
                   <Text style={[styles.subheader, theme.typography.body1]}>
-                    Mohon masukkan email yang terdaftar pada akun Anda. Kami akan mengirimkan link untuk reset kata sandi.
+                    Mohon buat kata sandi yang baru untuk akun Anda.
                   </Text>
                 </View>
 
                 <View style={styles.formContainer}>
                   <Textfield
-                    label="E-mail"
-                    example="example@gmail.com"
-                    value={email}
+                    label="Password"
+                    example="Password123!"
+                    value={password}
                     onChangeText={(text) => {
-                      setEmail(text);
+                      setPassword(text);
                       setError(undefined);
                     }}
                     error={error}
-                    validate={validateEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
+                    validate={validatePassword}
+                    isPassword
+                    autoComplete="password"
                   />
                 </View>
 
                 <View style={styles.buttonContainer}>
                   <Button
-                    title={isLoading ? 'Mengirim...' : 'Kirim Link Reset'}
+                    title={isLoading ? 'Loading...' : 'Reset Kata Sandi'}
                     variant="primary"
-                    onPress={handleSendLink}
+                    onPress={handleUpdatePassword}
                     disabled={isLoading}
                   />
                 </View>
@@ -110,10 +127,10 @@ const ForgotPassword = () => {
             ) : (
               <>
                 <View style={styles.successContainer}>
-                    <MaterialIcons name="mark-email-read" size={120} color={theme.colors.customGreen[300]} />
-                    <Text style={[styles.successHeader, theme.typography.title]}>Email Terkirim!</Text>
+                    <MaterialIcons name="check-circle" size={120} color={theme.colors.customGreen[300]} />
+                    <Text style={[styles.successHeader, theme.typography.title]}>Kata Sandi Berhasil Direset!</Text>
                     <Text style={[styles.successMessage, theme.typography.body1]}>
-                    Link reset kata sandi telah dikirim ke alamat email Anda. Silakan cek inbox atau folder spam Anda.
+                        Kata sandi akun Anda telah berhasil direset. Yuk login menggunakan kata sandi yang baru!
                     </Text>
                 </View>
                 <View style={styles.buttonContainer}>

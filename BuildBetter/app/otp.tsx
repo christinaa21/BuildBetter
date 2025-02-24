@@ -88,7 +88,7 @@ const OTP = () => {
       await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
       
       // If verification successful, navigate to next screen
-      router.push('/otp-success');
+      router.replace('/otp-success');
     } catch (error) {
       Alert.alert('Error', 'Kode OTP salah. Mohon masukkan kode OTP yang benar.');
       // Clear OTP fields on error
