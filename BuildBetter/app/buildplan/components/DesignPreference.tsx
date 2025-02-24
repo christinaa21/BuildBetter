@@ -29,7 +29,7 @@ interface DesignPreferenceData {
 
 const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBack }) => {
   const [formData, setFormData] = useState<DesignPreferenceData>({
-    design_style: data?.design_style || 'Minimalis',
+    design_style: data?.design_style || 'Modern',
     floor: data?.floor || 2,
     room: data?.room || 2,
   });
@@ -106,10 +106,10 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
                 placeholder="Pilih gaya rumah"
                 searchPlaceholder='Cari gaya rumah...'
                 options={[
-                  {"label": "Minimalis", "value": "Minimalis", "additional":
+                  {"label": "Modern", "value": "Modern", "additional":
                     <View style={styles.imageContainer}>
-                      <Image source={require('@/assets/images/minimalis1.jpg')} style={styles.image}/>
-                      <Image source={require('@/assets/images/minimalis2.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/modern1.jpg')} style={styles.image}/>
+                      <Image source={require('@/assets/images/modern2.jpg')} style={styles.image}/>
                     </View>
                     },
                   {"label": "Klasik", "value": "Klasik", "additional":
@@ -144,7 +144,6 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
                   {"label": "1", "value": 1},
                   {"label": "2", "value": 2},
                   {"label": "3", "value": 3},
-                  {"label": "4", "value": 4}
                 ]}
                 value={formData.floor}
                 onChange={handleFloorChange}
@@ -153,10 +152,10 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               <RadioGroup
                 label="Jumlah Kamar yang Akan Dibuat"
                 options={[
-                  {"label": "1", "value": 1},
                   {"label": "2", "value": 2},
                   {"label": "3", "value": 3},
-                  {"label": "4", "value": 4}
+                  {"label": "4", "value": 4},
+                  {"label": "5", "value": 5},
                 ]}
                 value={formData.room}
                 onChange={handleRoomChange}

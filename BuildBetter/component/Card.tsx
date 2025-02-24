@@ -37,6 +37,8 @@ export const Card: React.FC<CardProps> = ({
             variant={buttonVariant}
             onPress={onButtonPress}
             style={styles.button}
+            minHeight={24}
+            paddingVertical={8}
             />
         )}
       </View>

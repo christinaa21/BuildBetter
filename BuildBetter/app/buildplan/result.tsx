@@ -8,8 +8,8 @@ import { useRouter } from 'expo-router';
 
 export default function Saved() {
   const recommendations = [
-    { id: 1, title: 'Saran 1', image: require('@/assets/images/minimalis1.jpg') },
-    { id: 2, title: 'Saran 2', image: require('@/assets/images/minimalis2.jpg') },
+    { id: 1, title: 'Saran 1', image: require('@/assets/images/modern1.jpg') },
+    { id: 2, title: 'Saran 2', image: require('@/assets/images/modern2.jpg') },
     { id: 3, title: 'Saran 3', image: require('@/assets/images/industrialis1.jpg') },
     { id: 4, title: 'Saran 4', image: require('@/assets/images/industrialis2.jpg') },
   ]

@@ -33,8 +33,8 @@ const Screening = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     location: {
-      province: '',
-      city: '',
+      province: 'jawa barat',
+      city: 'kota bandung',
       shape: '',
       area: '',
     },

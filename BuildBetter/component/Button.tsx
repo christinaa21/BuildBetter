@@ -20,6 +20,8 @@ interface ButtonProps {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  minHeight?: number;
+  paddingVertical?: number;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -31,6 +33,8 @@ const Button: React.FC<ButtonProps> = ({
   disabled = false,
   style,
   textStyle,
+  minHeight = 48,
+  paddingVertical = 12,
 }) => {
   // Get the current text color based on button state
   const getTextColor = () => {
@@ -78,7 +82,7 @@ const Button: React.FC<ButtonProps> = ({
     <View>
       <View style={styles.outerLayer} />
         <View style={styles.primaryBorderContainer}>
-            <View style={styles.innerContainer}>
+            <View style={[styles.innerContainer, {minHeight: minHeight, paddingVertical: paddingVertical}]}>
             <View
                 style={[
                 styles.contentContainer,
@@ -106,7 +110,7 @@ const Button: React.FC<ButtonProps> = ({
 
     {/* For outline buttons or other variants */}
     {variant !== 'primary' && (
-      <View style={styles.innerContainer}>
+      <View style={[styles.innerContainer, {minHeight: minHeight, paddingVertical: paddingVertical}]}>
         <View
           style={[
             styles.contentContainer,
@@ -152,8 +156,6 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    minHeight: 48,
     minWidth: 120,
     justifyContent: 'center',
     alignItems: 'center',
