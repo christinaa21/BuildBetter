@@ -30,7 +30,7 @@ export default function Saved() {
                 image={item.image}
                 buttonTitle="Lihat Detil"
                 buttonVariant='primary'
-                onButtonPress={() => console.log(`Pressed ${item.id}`)}
+                onButtonPress={() => router.push('./detail')}
                 />
             )}
         />
