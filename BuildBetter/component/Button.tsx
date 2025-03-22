@@ -21,7 +21,9 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   minHeight?: number;
+  minWidth?: number;
   paddingVertical?: number;
+  paddingHorizontal?: number;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -34,7 +36,9 @@ const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   minHeight = 48,
+  minWidth = 120,
   paddingVertical = 12,
+  paddingHorizontal = 24,
 }) => {
   // Get the current text color based on button state
   const getTextColor = () => {
@@ -82,7 +86,7 @@ const Button: React.FC<ButtonProps> = ({
     <View>
       <View style={styles.outerLayer} />
         <View style={styles.primaryBorderContainer}>
-            <View style={[styles.innerContainer, {minHeight: minHeight, paddingVertical: paddingVertical}]}>
+            <View style={[styles.innerContainer, {minHeight: minHeight, minWidth: minWidth, paddingVertical: paddingVertical, paddingHorizontal: paddingHorizontal}]}>
             <View
                 style={[
                 styles.contentContainer,
@@ -110,7 +114,7 @@ const Button: React.FC<ButtonProps> = ({
 
     {/* For outline buttons or other variants */}
     {variant !== 'primary' && (
-      <View style={[styles.innerContainer, {minHeight: minHeight, paddingVertical: paddingVertical}]}>
+      <View style={[styles.innerContainer, {minHeight: minHeight, minWidth: minWidth, paddingVertical: paddingVertical, paddingHorizontal: paddingHorizontal}]}>
         <View
           style={[
             styles.contentContainer,
@@ -155,8 +159,6 @@ const styles = StyleSheet.create({
     margin: 2,
   },
   innerContainer: {
-    paddingHorizontal: 24,
-    minWidth: 120,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 24,
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
   },
   // Outline Button Styles
   outlineButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.customWhite[50],
     borderWidth: 1,
     borderColor: theme.colors.customGreen[300],
   },

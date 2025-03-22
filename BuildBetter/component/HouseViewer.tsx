@@ -5,12 +5,11 @@ import Button from './Button';
 import { theme } from '@/app/theme';
 
 interface HouseViewerProps {
-  onClose?: () => void;
   modelUri: string;
   isLocalFile?: boolean;
 }
 
-const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFile = false }) => {
+const HouseViewer: React.FC<HouseViewerProps> = ({ modelUri, isLocalFile = false }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -185,7 +184,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
 
   const handleWebViewMessage = (event: WebViewMessageEvent) => {
     const message = event.nativeEvent.data;
-    console.log('WebView message:', message);
+    // console.log('WebView message:', message);
     
     if (message === 'MODEL_LOADED') {
         console.log('Model loaded successfully!');
@@ -197,7 +196,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
         setError('Error loading 3D model. Please check if the model format is supported and the URL is accessible.');
         console.error('Model loading error:', message);
     } else if (message.startsWith('LOG:')) {
-        console.log('WebView log:', message.substring(4));
+        // console.log('WebView log:', message.substring(4));
     } else if (message.startsWith('JS_ERROR:') || 
                message.startsWith('IMPORT_ERROR:') || 
                message.startsWith('SCRIPT_ERROR:')) {
@@ -242,32 +241,9 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.customGreen[200]} />
-          <Text style={styles.loadingText}>Loading 3D model...</Text>
+          <Text style={[styles.loadingText, theme.typography.body1]}>Loading 3D model...</Text>
         </View>
       )}
-      
-      {error && !isLoading && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Button 
-            title="Retry" 
-            variant="primary" 
-            onPress={() => {
-              setError(null);
-              setIsLoading(true);
-            }}
-            style={styles.retryButton}
-          />
-        </View>
-      )}
-      
-      <View style={styles.buttonContainer}>
-        <Button 
-          title="Back" 
-          variant="outline" 
-          onPress={onClose}
-        />
-      </View>
     </View>
   );
 };
@@ -275,7 +251,6 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   webview: {
     flex: 1,
@@ -293,36 +268,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: theme.colors.customGreen[200],
-    fontSize: 16,
-  },
-  errorContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    padding: 20,
-  },
-  errorText: {
-    color: 'red',
-    backgroundColor: '#f8d7da',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 10,
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
   },
 });
 
