@@ -18,6 +18,7 @@ interface ButtonProps {
   iconPosition?: 'left' | 'right';
   onPress?: () => void;
   disabled?: boolean;
+  selected?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   minHeight?: number;
@@ -33,6 +34,7 @@ const Button: React.FC<ButtonProps> = ({
   iconPosition = 'left',
   onPress,
   disabled = false,
+  selected = false,
   style,
   textStyle,
   minHeight = 48,
@@ -69,9 +71,9 @@ const Button: React.FC<ButtonProps> = ({
         // Base styles
         variant === 'primary' && styles.primaryButton,
         variant === 'outline' && styles.outlineButton,
-        // Hover state
-        hovered && variant === 'primary' && styles.primaryButtonHover,
-        hovered && variant === 'outline' && styles.outlineButtonHover,
+        // Hover or Selected state
+        (hovered || selected) && variant === 'primary' && styles.primaryButtonHover,
+        (hovered || selected) && variant === 'outline' && styles.outlineButtonHover,
         // Pressed state
         pressed && variant === 'primary' && styles.primaryButtonPressed,
         pressed && variant === 'outline' && styles.outlineButtonPressed,
@@ -151,7 +153,7 @@ const styles = StyleSheet.create({
     width:'100%',
     height:'100%',
     borderRadius: 26,
-},
+  },
   primaryBorderContainer: {
     borderWidth: 2,
     borderColor: theme.colors.customWhite[50],

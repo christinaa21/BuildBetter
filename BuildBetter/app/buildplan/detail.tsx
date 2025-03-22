@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { View, Image, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
@@ -10,7 +10,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 const HouseResultPage = () => {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [is3D, setIs3D] = useState(true);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   
@@ -92,26 +92,28 @@ const HouseResultPage = () => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.landscapeContainer}>
-          <View style={styles.landscapeViewerContainer}>
-            {errorMsg ? (
-              <View style={styles.errorMessageContainer}>
-                <Text style={styles.errorMessageText}>{errorMsg}</Text>
-                <Button 
-                  title="Muat Ulang" 
-                  variant="primary"
-                  onPress={verifyModelUrl}
+          {is3D && (
+            <View style={styles.landscapeViewerContainer}>
+              {errorMsg ? (
+                <View style={styles.errorMessageContainer}>
+                  <Text style={styles.errorMessageText}>{errorMsg}</Text>
+                  <Button 
+                    title="Muat Ulang" 
+                    variant="primary"
+                    onPress={verifyModelUrl}
+                  />
+                </View>
+              ) : (
+                <HouseViewer 
+                  modelUri={modelUri}
                 />
+              )}
+              
+              <View style={styles.copyrightContainer}>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
               </View>
-            ) : (
-              <HouseViewer 
-                modelUri={modelUri}
-              />
-            )}
-            
-            <View style={styles.copyrightContainer}>
-              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
             </View>
-          </View>
+          )}
 
           <MaterialIcons name="chevron-left" size={40} color={theme.colors.customOlive[50]} style={styles.landscapeBackButton}/>
           <View style={styles.landscapeHeader}>
@@ -120,7 +122,8 @@ const HouseResultPage = () => {
               <Button 
                 title="3D Rumah" 
                 variant="outline"
-                onPress={() => console.log('View materials')}
+                onPress={() => setIs3D(true)}
+                selected={is3D? true : false}
                 minHeight={20}
                 minWidth={50}
                 paddingVertical={4}
@@ -129,7 +132,8 @@ const HouseResultPage = () => {
               <Button 
                 title="Denah" 
                 variant="outline"
-                onPress={() => console.log('View materials')}
+                onPress={() => setIs3D(false)}
+                selected={is3D? false : true}
                 minHeight={8}
                 minWidth={50}
                 paddingVertical={4}
@@ -138,33 +142,47 @@ const HouseResultPage = () => {
             </View>
           </View>
           
+          {!is3D && (
+            <View style={styles.imageContainer}>
+              <Image source={require('@/assets/images/denah1.png')} style={styles.image}/>
+            </View>
+          )}
+
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
               <Text style={[styles.infoLabelRight, theme.typography.caption]}>Kisaran Budget</Text>
               <Text style={[styles.infoValueRight, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
             </View>
-            <Button 
-              title="Simpan" 
-              variant="primary"
-              icon = {<MaterialIcons name="bookmark" size={16}/>}
-              iconPosition='left'
-              onPress={handleSaveDesign}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
-            <Button 
-              title="Material" 
-              variant="outline"
-              icon = {<MaterialIcons name="grid-view" size={16}/>}
-              iconPosition='left'
-              onPress={() => console.log('View materials')}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={8}
-            />
+            {is3D ? (
+              <>
+                <Button 
+                  title="Simpan" 
+                  variant="primary"
+                  icon = {<MaterialIcons name="bookmark" size={16}/>}
+                  iconPosition='left'
+                  onPress={handleSaveDesign}
+                  minHeight={10}
+                  minWidth={50}
+                  paddingHorizontal={16}
+                  paddingVertical={6}
+                />
+                <Button 
+                  title="Material" 
+                  variant="outline"
+                  icon = {<MaterialIcons name="grid-view" size={16}/>}
+                  iconPosition='left'
+                  onPress={() => console.log('View materials')}
+                  minHeight={10}
+                  minWidth={50}
+                  paddingHorizontal={16}
+                  paddingVertical={8}
+                />
+              </>
+            ) : (
+              <View style={styles.infoContainer}>
+                
+              </View>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -182,6 +200,7 @@ const HouseResultPage = () => {
                 title="3D Rumah" 
                 variant="outline"
                 onPress={() => console.log('View materials')}
+                selected={true}
                 minHeight={20}
                 minWidth={50}
                 paddingVertical={4}
@@ -259,6 +278,7 @@ const styles = StyleSheet.create({
   title: {
     marginLeft: 4,
     marginBottom: 4,
+    color: theme.colors.customOlive[50]
   },
   tabs: {
     flexDirection: 'row',
@@ -281,6 +301,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  imageContainer:{
+    flex: 1,
+    height: '90%',
+  },
+  image: {
+    width: '40%',
+    height: '90%',
+    alignSelf: 'center',
+    objectFit: 'cover'
   },
   infoContainer: {
     padding: 20,
@@ -321,13 +351,13 @@ const styles = StyleSheet.create({
   },
   landscapeBackButton: {
     position: 'absolute',
-    top: '1%',
+    top: '2%',
     left: '1%',
     zIndex: 10,
   },
   landscapeHeader: {
     position: 'absolute',
-    top: '3%',
+    top: '4%',
     left: '6%',
     zIndex: 10,
   },
@@ -338,7 +368,7 @@ const styles = StyleSheet.create({
   },
   landscapeRightSidebar: {
     position: 'absolute',
-    top: '2%',
+    top: '4%',
     right: '2%',
     zIndex: 10,
     alignItems: 'flex-end',
