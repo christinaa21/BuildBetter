@@ -13,7 +13,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAX_TRANSLATE_Y = -SCREEN_HEIGHT + 320;
+const MAX_TRANSLATE_Y = -SCREEN_HEIGHT + 0.45*SCREEN_HEIGHT;
 
 export default function HomeScreen() {
   const name = 'Yulia';
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroSection: {
-    height: 400,
+    height: 0.55*SCREEN_HEIGHT,
     paddingHorizontal: 16,
   },
   headerContent: {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     height: SCREEN_HEIGHT,
     width: '100%',
     backgroundColor: theme.colors.customWhite[50],
-    top: SCREEN_HEIGHT - 320,
+    top: 0.55*SCREEN_HEIGHT,
     paddingTop: 16,
     paddingHorizontal: 20,
   },

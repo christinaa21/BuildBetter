@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   image: {
-    width: 140,
+    width: '48%',
     height: 140,
     alignSelf: 'center',
     objectFit: 'cover'

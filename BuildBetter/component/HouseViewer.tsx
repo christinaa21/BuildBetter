@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Platform, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Button from './Button';
+import { theme } from '@/app/theme';
 
 interface HouseViewerProps {
   onClose?: () => void;
@@ -13,7 +14,6 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Use a direct HTML implementation with improved error handling
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -26,8 +26,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
             overflow: hidden; 
             width: 100%; 
             height: 100vh;
-            background-color: #f5f5f5;
-            font-family: Arial, sans-serif;
+            font-family: Poppins, sans-serif;
           }
           .container {
             width: 100%;
@@ -40,7 +39,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
             color: #721c24;
             background-color: #f8d7da;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 10px;
             max-width: 80%;
             text-align: center;
           }
@@ -242,7 +241,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ onClose, modelUri, isLocalFil
       
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
+          <ActivityIndicator size="large" color={theme.colors.customGreen[200]} />
           <Text style={styles.loadingText}>Loading 3D model...</Text>
         </View>
       )}
@@ -293,7 +292,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#4CAF50',
+    color: theme.colors.customGreen[200],
     fontSize: 16,
   },
   errorContainer: {
@@ -308,7 +307,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#721c24',
+    color: 'red',
     backgroundColor: '#f8d7da',
     padding: 15,
     borderRadius: 5,

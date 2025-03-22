@@ -34,13 +34,13 @@ export default function Saved() {
                 />
             )}
         />
-        <Button
-          title="Kembali ke Beranda"
-          variant="outline"
-          onPress={() => router.push('/(tabs)/home')}
-          style={styles.button}
-        />
       </View>
+      <Button
+        title="Kembali ke Beranda"
+        variant="outline"
+        onPress={() => router.push('/(tabs)/home')}
+        style={styles.button}
+      />
     </SafeAreaView>
   );
 }
@@ -59,6 +59,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   button: {
-    marginTop: 24,
+    margin: '8%',
   }
 });
