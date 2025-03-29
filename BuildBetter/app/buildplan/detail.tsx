@@ -133,7 +133,7 @@ const HouseResultPage = () => {
               </View>
             </View>
           ) : (
-            <FloorplanViewer floorplans={floorplans} />
+            <FloorplanViewer floorplans={floorplans} isLandscape={true} />
           )}
 
           <TouchableOpacity onPress={goBack} style={styles.landscapeBackButton}>
@@ -266,7 +266,7 @@ const HouseResultPage = () => {
               />
             )
           ) : (
-            <FloorplanViewer floorplans={floorplans} />
+            <FloorplanViewer floorplans={floorplans} isLandscape={false} />
           )}
         </View>
 
@@ -310,7 +310,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 10,
   },
   backButton: {
     position: 'absolute',
