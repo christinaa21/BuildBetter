@@ -6,7 +6,6 @@ import {
   Text, 
   ScrollView, 
   Dimensions,
-  TouchableOpacity,
   Animated,
   ImageSourcePropType
 } from 'react-native';
@@ -20,7 +19,7 @@ import {
 } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '@/app/theme';
-import Button from './Button';
+import FilterDropdown from './FilterDropdown';
 
 // Define the floorplan type
 interface Floorplan {
@@ -43,6 +42,20 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
   const { width, height } = Dimensions.get('window');
   
   const currentFloorplan = sortedFloorplans[currentFloorIndex];
+  
+  // Convert floorplans to filter options
+  const floorFilterOptions = sortedFloorplans.map((floor, index) => ({
+    id: floor.id,
+    label: floor.name,
+    value: index
+  }));
+  
+  // Handle filter selection
+  const handleFloorFilterChange = (selectedValues: any[]) => {
+    if (selectedValues.length > 0) {
+      setCurrentFloorIndex(selectedValues[0]);
+    }
+  };
   
   const onPinchEvent = Animated.event(
     [{ nativeEvent: { scale: scale } }],
@@ -127,41 +140,16 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
       </PanGestureHandler>
       
       {floorplans.length > 1 && (
-        <View style={[
-          styles.floorControls,
-          isLandscape ? styles.floorControlsLandscape : styles.floorControlsPortrait
-        ]}>
-          <TouchableOpacity 
-            style={[styles.floorButton, currentFloorIndex === 0 && styles.floorButtonDisabled]} 
-            onPress={nextFloor}
-            disabled={currentFloorIndex === 0}
-          >
-            <MaterialIcons name="keyboard-arrow-up" size={24} color={currentFloorIndex === 0 ? '#CCCCCC' : theme.colors.customOlive[50]} />
-          </TouchableOpacity>
-          
-          <View style={styles.floorIndicator}>
-            {sortedFloorplans.map((floor, index) => (
-              <Button 
-                key={floor.id}
-                title={floor.name}
-                variant="outline"
-                onPress={() => setCurrentFloorIndex(index)}
-                selected={currentFloorIndex === index}
-                minHeight={20}
-                minWidth={20}
-                paddingVertical={6}
-                paddingHorizontal={isLandscape ? 16 : 8}
-              />
-            ))}
-          </View>
-          
-          <TouchableOpacity 
-            style={[styles.floorButton, currentFloorIndex === floorplans.length - 1 && styles.floorButtonDisabled]} 
-            onPress={prevFloor}
-            disabled={currentFloorIndex === floorplans.length - 1}
-          >
-            <MaterialIcons name="keyboard-arrow-down" size={24} color={currentFloorIndex === floorplans.length - 1 ? '#CCCCCC' : theme.colors.customOlive[50]} />
-          </TouchableOpacity>
+        <View style={styles.floorIndicator}>
+          <FilterDropdown 
+            options={floorFilterOptions}
+            selectedValues={[currentFloorIndex]}
+            onSelectionChange={handleFloorFilterChange}
+            allowMultiple={false}
+            placeholder="Select Floor"
+            buttonWidth={120}
+            icon={<MaterialIcons name="layers" size={16} />}
+          />
         </View>
       )}
       
@@ -193,35 +181,12 @@ const styles = StyleSheet.create({
   floorplanImage: {
     resizeMode: 'contain',
   },
-  floorControls: {
-    position: 'absolute',
-    backgroundColor: 'rgba(236, 250, 246, 0.8)',
-    borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  floorControlsPortrait: {
-    right: 16,
-  },
-  floorControlsLandscape: {
-    right: 16,
-    bottom: '5%',
-  },
-  floorButton: {
-    padding: 6,
-  },
-  floorButtonDisabled: {
-    opacity: 0.5,
-  },
   floorIndicator: {
-    alignItems: 'center',
-    gap: 8,
+    position: 'absolute',
+    zIndex: 10,
+    right: 16,
+    paddingVertical: 8,
+    bottom: '5%'
   },
   copyrightContainer: {
     position: 'absolute',
@@ -230,20 +195,6 @@ const styles = StyleSheet.create({
   },
   copyrightText: {
     color: theme.colors.customGray[200],
-  },
-  swipeIndicatorContainer: {
-    position: 'absolute',
-    bottom: '15%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    opacity: 0.7,
-    zIndex: 5,
-  },
-  swipeIndicatorText: {
-    color: 'rgba(0,0,0,0.6)',
-    fontSize: 12,
-    marginBottom: 4,
   },
 });
 

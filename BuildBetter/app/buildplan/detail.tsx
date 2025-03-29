@@ -16,7 +16,7 @@ const HouseResultPage = () => {
   const isLandscape = width > height;
   
   // For production, this would come from your API
-  const modelUri = 'https://d8af-182-3-36-165.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://0577-125-165-89-166.ngrok-free.app/assets/rumah.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [
@@ -73,15 +73,13 @@ const HouseResultPage = () => {
   useEffect(() => {
     const setupOrientation = async () => {
       try {
-        // Only force landscape for 3D view
-        if (is3D) {
-          await ScreenOrientation.lockAsync(
-            ScreenOrientation.OrientationLock.LANDSCAPE
-          );
-        } else {
-          // For floorplan view, allow both orientations
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.LANDSCAPE
+        );
+        
+        setTimeout(async () => {
           await ScreenOrientation.unlockAsync();
-        }
+        }, 5000);
       } catch (error) {
         console.error('Failed to manage orientation:', error);
       }
@@ -104,7 +102,7 @@ const HouseResultPage = () => {
       
       lockPortrait();
     };
-  }, [is3D]);
+  }, []);
 
   // Render landscape layout
   if (isLandscape) {
@@ -168,8 +166,8 @@ const HouseResultPage = () => {
 
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
-              <Text style={[styles.infoLabelRight, theme.typography.caption]}>Kisaran Budget</Text>
-              <Text style={[styles.infoValueRight, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
+              <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget</Text>
+              <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
             </View>
             
             {is3D ? (
@@ -272,8 +270,8 @@ const HouseResultPage = () => {
 
         <View style={styles.infoContainer}>
           <View style={styles.budgetInfo}>
-            <Text style={[styles.infoLabel, theme.typography.body2]}>Kisaran Budget</Text>
-            <Text style={[styles.infoValue, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
+            <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
+            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
           </View>
           
           <View style={styles.buttonGroup}>
@@ -281,16 +279,26 @@ const HouseResultPage = () => {
               <Button 
                 title="Material" 
                 variant="outline"
+                icon={<MaterialIcons name="grid-view" size={16}/>}
+                iconPosition='left'
                 onPress={() => console.log('View materials')}
-                style={styles.materialButton}
+                minHeight={10}
+                minWidth={50}
+                paddingHorizontal={16}
+                paddingVertical={8}
               />
             )}
             
             <Button 
               title="Simpan" 
               variant="primary"
+              icon={<MaterialIcons name="bookmark" size={16}/>}
+              iconPosition='left'
               onPress={handleSaveDesign}
-              style={styles.saveButton}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
             />
           </View>
         </View>
@@ -346,7 +354,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   infoContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -367,13 +376,7 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
   },
   buttonGroup: {
-    flexDirection: 'row',
-  },
-  materialButton: {
-    marginRight: 10,
-  },
-  saveButton: {
-    minWidth: 100,
+    gap: 8,
   },
   
   // Landscape styles
@@ -412,12 +415,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 16,
     alignItems: 'center',
-  },
-  infoLabelRight: {
-    color: theme.colors.customOlive[50],
-  },
-  infoValueRight: {
-    color: theme.colors.customGreen[300],
   },
   copyrightContainer: {
     position: 'absolute',
