@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
+import FloorplanViewer from '@/component/FloorplanViewer';
 import Button from '@/component/Button';
 import { theme } from '../theme';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,15 +16,31 @@ const HouseResultPage = () => {
   const isLandscape = width > height;
   
   // For production, this would come from your API
-  // Use a public model URL that is known to work for testing
-  const modelUri = 'https://c7ff-180-254-76-163.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://d8af-182-3-36-165.ngrok-free.app/assets/rumah.glb';
   
+  // Sample floorplan data - in a real app, this would come from your API
+  const floorplans = [
+    {
+      id: 1,
+      floor: 1,
+      name: 'Lantai 1',
+      source: require('@/assets/images/denah1.png'),
+      orientation: 'horizontal' as 'horizontal'
+    },
+    {
+      id: 2,
+      floor: 2,
+      name: 'Lantai 2',
+      source: require('@/assets/images/denah2.png'), // You would need to add this asset
+      orientation: 'horizontal' as 'horizontal'
+    }
+  ];
+
   const goBack = () => {
     router.back();
   };
 
   const handleSaveDesign = () => {
-    // Implement saving logic here
     Alert.alert('Success', 'Design has been saved successfully');
     console.log('Design saved');
   };
@@ -56,13 +73,15 @@ const HouseResultPage = () => {
   useEffect(() => {
     const setupOrientation = async () => {
       try {
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.LANDSCAPE
-        );
-        
-        setTimeout(async () => {
+        // Only force landscape for 3D view
+        if (is3D) {
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.LANDSCAPE
+          );
+        } else {
+          // For floorplan view, allow both orientations
           await ScreenOrientation.unlockAsync();
-        }, 5000);
+        }
       } catch (error) {
         console.error('Failed to manage orientation:', error);
       }
@@ -85,14 +104,14 @@ const HouseResultPage = () => {
       
       lockPortrait();
     };
-  }, []);
+  }, [is3D]);
 
   // Render landscape layout
   if (isLandscape) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.landscapeContainer}>
-          {is3D && (
+          {is3D ? (
             <View style={styles.landscapeViewerContainer}>
               {errorMsg ? (
                 <View style={styles.errorMessageContainer}>
@@ -113,9 +132,14 @@ const HouseResultPage = () => {
                 <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
               </View>
             </View>
+          ) : (
+            <FloorplanViewer floorplans={floorplans} />
           )}
 
-          <MaterialIcons name="chevron-left" size={40} color={theme.colors.customOlive[50]} style={styles.landscapeBackButton}/>
+          <TouchableOpacity onPress={goBack} style={styles.landscapeBackButton}>
+            <MaterialIcons name="chevron-left" size={40} color={theme.colors.customOlive[50]} />
+          </TouchableOpacity>
+          
           <View style={styles.landscapeHeader}>
             <Text style={[styles.title, theme.typography.title]}>Saran 1</Text>
             <View style={styles.tabs}>
@@ -123,7 +147,7 @@ const HouseResultPage = () => {
                 title="3D Rumah" 
                 variant="outline"
                 onPress={() => setIs3D(true)}
-                selected={is3D? true : false}
+                selected={is3D}
                 minHeight={20}
                 minWidth={50}
                 paddingVertical={4}
@@ -133,7 +157,7 @@ const HouseResultPage = () => {
                 title="Denah" 
                 variant="outline"
                 onPress={() => setIs3D(false)}
-                selected={is3D? false : true}
+                selected={!is3D}
                 minHeight={8}
                 minWidth={50}
                 paddingVertical={4}
@@ -141,24 +165,19 @@ const HouseResultPage = () => {
               />
             </View>
           </View>
-          
-          {!is3D && (
-            <View style={styles.imageContainer}>
-              <Image source={require('@/assets/images/denah1.png')} style={styles.image}/>
-            </View>
-          )}
 
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
               <Text style={[styles.infoLabelRight, theme.typography.caption]}>Kisaran Budget</Text>
               <Text style={[styles.infoValueRight, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
             </View>
+            
             {is3D ? (
               <>
                 <Button 
                   title="Simpan" 
                   variant="primary"
-                  icon = {<MaterialIcons name="bookmark" size={16}/>}
+                  icon={<MaterialIcons name="bookmark" size={16}/>}
                   iconPosition='left'
                   onPress={handleSaveDesign}
                   minHeight={10}
@@ -169,7 +188,7 @@ const HouseResultPage = () => {
                 <Button 
                   title="Material" 
                   variant="outline"
-                  icon = {<MaterialIcons name="grid-view" size={16}/>}
+                  icon={<MaterialIcons name="grid-view" size={16}/>}
                   iconPosition='left'
                   onPress={() => console.log('View materials')}
                   minHeight={10}
@@ -179,9 +198,17 @@ const HouseResultPage = () => {
                 />
               </>
             ) : (
-              <View style={styles.infoContainer}>
-                
-              </View>
+              <Button 
+                title="Simpan" 
+                variant="primary"
+                icon={<MaterialIcons name="bookmark" size={16}/>}
+                iconPosition='left'
+                onPress={handleSaveDesign}
+                minHeight={10}
+                minWidth={50}
+                paddingHorizontal={16}
+                paddingVertical={6}
+              />
             )}
           </View>
         </View>
@@ -194,44 +221,52 @@ const HouseResultPage = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={goBack} style={styles.backButton}>
+            <MaterialIcons name="chevron-left" size={32} color={theme.colors.customOlive[50]} />
+          </TouchableOpacity>
           <Text style={[styles.title, theme.typography.title]}>Saran 1</Text>
-            <View style={styles.tabs}>
-              <Button 
-                title="3D Rumah" 
-                variant="outline"
-                onPress={() => console.log('View materials')}
-                selected={true}
-                minHeight={20}
-                minWidth={50}
-                paddingVertical={4}
-                paddingHorizontal={12}
-              />
-              <Button 
-                title="Denah" 
-                variant="outline"
-                onPress={() => console.log('View materials')}
-                minHeight={8}
-                minWidth={50}
-                paddingVertical={4}
-                paddingHorizontal={12}
-              />
-            </View>
+          <View style={styles.tabs}>
+            <Button 
+              title="3D Rumah" 
+              variant="outline"
+              onPress={() => setIs3D(true)}
+              selected={is3D}
+              minHeight={20}
+              minWidth={50}
+              paddingVertical={4}
+              paddingHorizontal={12}
+            />
+            <Button 
+              title="Denah" 
+              variant="outline"
+              onPress={() => setIs3D(false)}
+              selected={!is3D}
+              minHeight={8}
+              minWidth={50}
+              paddingVertical={4}
+              paddingHorizontal={12}
+            />
+          </View>
         </View>
 
         <View style={styles.viewerContainer}>
-          {errorMsg ? (
-            <View style={styles.errorMessageContainer}>
-              <Text style={styles.errorMessageText}>{errorMsg}</Text>
-              <Button 
-                title="Muat Ulang" 
-                variant="primary"
-                onPress={verifyModelUrl}
+          {is3D ? (
+            errorMsg ? (
+              <View style={styles.errorMessageContainer}>
+                <Text style={styles.errorMessageText}>{errorMsg}</Text>
+                <Button 
+                  title="Muat Ulang" 
+                  variant="primary"
+                  onPress={verifyModelUrl}
+                />
+              </View>
+            ) : (
+              <HouseViewer 
+                modelUri={modelUri}
               />
-            </View>
+            )
           ) : (
-            <HouseViewer 
-              modelUri={modelUri}
-            />
+            <FloorplanViewer floorplans={floorplans} />
           )}
         </View>
 
@@ -242,12 +277,14 @@ const HouseResultPage = () => {
           </View>
           
           <View style={styles.buttonGroup}>
-            <Button 
-              title="Material" 
-              variant="outline"
-              onPress={() => console.log('View materials')}
-              style={styles.materialButton}
-            />
+            {is3D && (
+              <Button 
+                title="Material" 
+                variant="outline"
+                onPress={() => console.log('View materials')}
+                style={styles.materialButton}
+              />
+            )}
             
             <Button 
               title="Simpan" 
@@ -275,8 +312,14 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
   },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 10,
+    zIndex: 10,
+  },
   title: {
-    marginLeft: 4,
+    marginLeft: 40,
     marginBottom: 4,
     color: theme.colors.customOlive[50]
   },
@@ -284,6 +327,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 8,
+    marginLeft: 40,
   },
   viewerContainer: {
     flex: 1,
@@ -301,16 +345,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  imageContainer:{
-    flex: 1,
-    height: '90%',
-  },
-  image: {
-    width: '40%',
-    height: '90%',
-    alignSelf: 'center',
-    objectFit: 'cover'
   },
   infoContainer: {
     padding: 20,
@@ -343,7 +377,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   
-  // Add these to your StyleSheet:
+  // Landscape styles
   landscapeContainer: {
     flex: 1,
     flexDirection: 'column',
@@ -393,6 +427,10 @@ const styles = StyleSheet.create({
   },
   copyrightText: {
     color: theme.colors.customGray[200],
+  },
+  floorSelector: {
+    flexDirection: 'column',
+    gap: 8,
   },
 });
 
