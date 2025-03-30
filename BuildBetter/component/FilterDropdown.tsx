@@ -76,7 +76,6 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
     if (disabled) return;
     
     if (!isOpen) {
-      // Measure button position to place dropdown correctly
       buttonRef.current?.measure((x, y, width, height, pageX, pageY) => {
         setButtonLayout({ x: pageX, y: pageY, width, height });
         
@@ -84,7 +83,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
         if (position === 'auto') {
           // Estimate dropdown height based on number of options (with max height constraint)
           const estimatedDropdownHeight = Math.min(
-            options.length * 44 + (allowMultiple ? 120 : 0), // 44px per option + extra for action buttons
+            options.length * 44 + (allowMultiple ? 120 : 0),
             maxHeight
           );
           
@@ -133,7 +132,6 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
     };
     
     return () => {
-      // Cleanup if needed
     };
   }, [isOpen, dropdownAnimation]);
 
@@ -175,9 +173,11 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
           icon={icon}
           iconPosition="left"
           onPress={toggleDropdown}
-          minWidth={120}
-          style={[styles.dropdownButton, isOpen && styles.activeButton]}
+          minWidth={buttonWidth}
+          minHeight={10}
           disabled={disabled}
+          paddingVertical={8}
+          paddingHorizontal={16}
         />
       </View>
       
@@ -194,7 +194,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                   maxHeight: maxHeight,
                   // Position dropdown based on determined position
                   ...(dropdownPosition === 'above' 
-                    ? { bottom: buttonLayout.height + 8 } 
+                    ? { bottom: buttonLayout.height - 36 } 
                     : { top: buttonLayout.height + 8 }),
                   left: 0
                 }
@@ -250,7 +250,6 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                     </Pressable>
                   );
                 }}
-                contentContainerStyle={styles.dropdownList}
                 showsVerticalScrollIndicator={true}
                 style={styles.flatList}
               />
@@ -284,19 +283,12 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    zIndex: 10,
+    zIndex: 1000,
   },
   labelText: {
     ...theme.typography.body2,
     color: theme.colors.customGray[200],
     marginBottom: 4,
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activeButton: {
-    borderColor: theme.colors.customGreen[400],
   },
   dropdownWrapper: {
     position: 'absolute',
@@ -306,7 +298,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: theme.colors.customWhite[50],
     borderRadius: 16,
-    elevation: 5,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -314,9 +306,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.customGreen[100],
     zIndex: 1000,
-  },
-  dropdownList: {
-    paddingVertical: 8,
   },
   flatList: {
     borderRadius: 16,
@@ -331,17 +320,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionItemHover: {
-    backgroundColor: '#CAE1DB',
+    backgroundColor: '#8CA8A1',
   },
   selectedOptionItem: {
     backgroundColor: theme.colors.customGreen[50],
   },
   optionItemText: {
     ...theme.typography.body1,
-    color: theme.colors.customGreen[300],
+    color: theme.colors.customGreen[200],
   },
   selectedOptionItemText: {
-    fontWeight: '500',
+    ...theme.typography.body1,
     color: theme.colors.customGreen[500],
   },
   actionButtons: {

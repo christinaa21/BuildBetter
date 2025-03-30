@@ -140,22 +140,21 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
       </PanGestureHandler>
       
       {floorplans.length > 1 && (
-        <View style={styles.floorIndicator}>
+        <View style={[styles.floorIndicator, {right: isLandscape ? '1%' : '6%'}, {bottom: isLandscape ? '40%' : '1%'}]}>
           <FilterDropdown 
             options={floorFilterOptions}
             selectedValues={[currentFloorIndex]}
             onSelectionChange={handleFloorFilterChange}
             allowMultiple={false}
             placeholder="Select Floor"
-            buttonWidth={120}
+            buttonWidth={126}
+            dropdownWidth={130}
+            maxHeight={120}
             icon={<MaterialIcons name="layers" size={16} />}
+            position={isLandscape ? 'below' : 'above'}
           />
         </View>
       )}
-      
-      <View style={styles.copyrightContainer}>
-        <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
-      </View>
     </GestureHandlerRootView>
   );
 };
@@ -183,18 +182,8 @@ const styles = StyleSheet.create({
   },
   floorIndicator: {
     position: 'absolute',
-    zIndex: 10,
-    right: 16,
+    zIndex: 1000,
     paddingVertical: 8,
-    bottom: '5%'
-  },
-  copyrightContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-  },
-  copyrightText: {
-    color: theme.colors.customGray[200],
   },
 });
 

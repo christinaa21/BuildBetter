@@ -16,7 +16,7 @@ const HouseResultPage = () => {
   const isLandscape = width > height;
   
   // For production, this would come from your API
-  const modelUri = 'https://0577-125-165-89-166.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://c5fe-180-254-68-24.ngrok-free.app/assets/rumah.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [
@@ -33,7 +33,21 @@ const HouseResultPage = () => {
       name: 'Lantai 2',
       source: require('@/assets/images/denah2.png'), // You would need to add this asset
       orientation: 'horizontal' as 'horizontal'
-    }
+    },
+    {
+      id: 3,
+      floor: 3,
+      name: 'Lantai 3',
+      source: require('@/assets/images/denah1.png'),
+      orientation: 'horizontal' as 'horizontal'
+    },
+    {
+      id: 4,
+      floor: 4,
+      name: 'Lantai 4',
+      source: require('@/assets/images/denah2.png'), // You would need to add this asset
+      orientation: 'horizontal' as 'horizontal'
+    },
   ];
 
   const goBack = () => {
@@ -126,12 +140,18 @@ const HouseResultPage = () => {
                 />
               )}
               
-              <View style={styles.copyrightContainer}>
+              <View style={styles.landscapeCopyrightContainer}>
                 <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
               </View>
             </View>
           ) : (
-            <FloorplanViewer floorplans={floorplans} isLandscape={true} />
+            <View style={styles.landscapeViewerContainer}>
+              <FloorplanViewer floorplans={floorplans} isLandscape={true} />
+              
+              <View style={styles.landscapeCopyrightContainer}>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+              </View>
+            </View>
           )}
 
           <TouchableOpacity onPress={goBack} style={styles.landscapeBackButton}>
@@ -247,9 +267,9 @@ const HouseResultPage = () => {
           </View>
         </View>
 
-        <View style={styles.viewerContainer}>
-          {is3D ? (
-            errorMsg ? (
+        {is3D ? (
+          <View style={styles.viewerContainer}>
+            {errorMsg ? (
               <View style={styles.errorMessageContainer}>
                 <Text style={styles.errorMessageText}>{errorMsg}</Text>
                 <Button 
@@ -262,20 +282,9 @@ const HouseResultPage = () => {
               <HouseViewer 
                 modelUri={modelUri}
               />
-            )
-          ) : (
-            <FloorplanViewer floorplans={floorplans} isLandscape={false} />
-          )}
-        </View>
+            )}
 
-        <View style={styles.infoContainer}>
-          <View style={styles.budgetInfo}>
-            <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
-            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
-          </View>
-          
-          <View style={styles.buttonGroup}>
-            {is3D && (
+            <View style={styles.materialButton}>
               <Button 
                 title="Material" 
                 variant="outline"
@@ -287,20 +296,39 @@ const HouseResultPage = () => {
                 paddingHorizontal={16}
                 paddingVertical={8}
               />
-            )}
+            </View>
             
-            <Button 
-              title="Simpan" 
-              variant="primary"
-              icon={<MaterialIcons name="bookmark" size={16}/>}
-              iconPosition='left'
-              onPress={handleSaveDesign}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
+            <View style={styles.copyrightContainer}>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+            </View>
           </View>
+        ) : (
+          <View style={styles.viewerContainer}>
+            <FloorplanViewer floorplans={floorplans} isLandscape={false} />
+              
+            <View style={styles.copyrightContainer}>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.infoContainer}>
+          <View style={styles.budgetInfo}>
+            <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
+            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
+          </View>
+          
+          <Button 
+            title="Simpan" 
+            variant="primary"
+            icon={<MaterialIcons name="bookmark" size={16}/>}
+            iconPosition='left'
+            onPress={handleSaveDesign}
+            minHeight={10}
+            minWidth={50}
+            paddingHorizontal={16}
+            paddingVertical={6}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -354,8 +382,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   infoContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: '6%',
+    paddingVertical: '4%',
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -375,8 +403,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  buttonGroup: {
-    gap: 8,
+  copyrightContainer: {
+    position: 'absolute',
+    bottom: '2%',
+    left: '6%',
+  },
+  materialButton: {
+    position: 'absolute',
+    right: 22,
+    paddingVertical: 8,
+    bottom: '1%'
   },
   
   // Landscape styles
@@ -416,17 +452,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
   },
-  copyrightContainer: {
+  landscapeCopyrightContainer: {
     position: 'absolute',
     bottom: '6%',
     left: '6%',
   },
   copyrightText: {
     color: theme.colors.customGray[200],
-  },
-  floorSelector: {
-    flexDirection: 'column',
-    gap: 8,
   },
 });
 
