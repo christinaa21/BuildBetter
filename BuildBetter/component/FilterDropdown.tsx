@@ -4,7 +4,6 @@ import {
   Text, 
   StyleSheet, 
   Pressable, 
-  FlatList,
   Animated,
   Dimensions,
   TouchableWithoutFeedback
@@ -12,6 +11,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import Button from './Button';
 import { theme } from '@/app/theme';
+import { ScrollView } from 'react-native-gesture-handler';
 
 interface FilterOption {
   id: string | number;
@@ -54,6 +54,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
   const dropdownAnimation = useRef(new Animated.Value(0)).current;
   const { width, height } = Dimensions.get('window');
   const buttonRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [buttonLayout, setButtonLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [dropdownPosition, setDropdownPosition] = useState<'above' | 'below'>('below');
   
@@ -116,6 +117,23 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
       });
     }
   };
+  
+  useEffect(() => {
+    if (isOpen && selectedValues.length > 0 && scrollViewRef.current) {
+      // Find the index of the first selected option
+      const selectedIndex = options.findIndex(opt => opt.value === selectedValues[0]);
+      
+      if (selectedIndex !== -1) {
+        // Use setTimeout to ensure the ScrollView has rendered
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            y: selectedIndex * 44,
+            animated: true
+          });
+        }, 100);
+      }
+    }
+  }, [isOpen, selectedValues, options]);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -217,13 +235,14 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                 </View>
               )}
               
-              <FlatList
-                data={options}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => {
+              <ScrollView
+                ref={scrollViewRef}
+                style={{maxHeight: maxHeight}}>
+                {options.map((item) => {
                   const isSelected = selectedValues.includes(item.value);
                   return (
                     <Pressable
+                      key={item.id.toString()}
                       style={({ pressed, hovered }) => [
                         styles.optionItem,
                         isSelected && styles.selectedOptionItem,
@@ -249,10 +268,8 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                       )}
                     </Pressable>
                   );
-                }}
-                showsVerticalScrollIndicator={true}
-                style={styles.flatList}
-              />
+                })}
+              </ScrollView>
               
               {allowMultiple && (
                 <View style={styles.applyButtonContainer}>
@@ -306,6 +323,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.customGreen[100],
     zIndex: 1000,
+    overflow: 'hidden'
   },
   flatList: {
     borderRadius: 16,

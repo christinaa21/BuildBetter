@@ -31,21 +31,7 @@ const HouseResultPage = () => {
       id: 2,
       floor: 2,
       name: 'Lantai 2',
-      source: require('@/assets/images/denah2.png'), // You would need to add this asset
-      orientation: 'horizontal' as 'horizontal'
-    },
-    {
-      id: 3,
-      floor: 3,
-      name: 'Lantai 3',
-      source: require('@/assets/images/denah1.png'),
-      orientation: 'horizontal' as 'horizontal'
-    },
-    {
-      id: 4,
-      floor: 4,
-      name: 'Lantai 4',
-      source: require('@/assets/images/denah2.png'), // You would need to add this asset
+      source: require('@/assets/images/denah2.png'),
       orientation: 'horizontal' as 'horizontal'
     },
   ];
