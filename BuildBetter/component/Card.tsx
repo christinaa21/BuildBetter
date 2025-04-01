@@ -5,33 +5,49 @@ import theme from '@/app/theme';
 
 interface CardProps {
   title: string;
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
+  icon?:React.ReactNode;
   buttonTitle?: string;
+  description?: string;
   onButtonPress?: () => void;
   imageStyle?: object;
   style?: object;
   buttonVariant?: 'primary' | 'outline';
+  showButton?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
   title,
   image,
+  icon,
   buttonTitle,
+  description,
   onButtonPress,
   imageStyle,
   style,
   buttonVariant = 'outline',
+  showButton = true,
 }) => {
   return (
     <TouchableOpacity activeOpacity={0.4}>
       <View style={[styles.card, style]} onTouchEnd={onButtonPress}>
-        <Image 
-            source={image} 
-            style={[styles.cardImage, imageStyle]} 
-            resizeMode="cover"
-        />
+        {image && (
+          <Image 
+              source={image} 
+              style={[styles.cardImage, imageStyle]} 
+              resizeMode="cover"
+          />
+        )}
+        {icon && !image && (
+          <View style={styles.iconContainer}>
+            {icon}
+          </View>
+        )}
         <Text style={styles.cardTitle}>{title}</Text>
-        {buttonTitle && (
+        {description && (
+          <Text style={styles.cardDescription}>{description}</Text>
+        )}
+        {buttonTitle && showButton && (
             <Button
             title={buttonTitle}
             variant={buttonVariant}
@@ -59,13 +75,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 8,
   },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 40,
+    marginBottom: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#ECFAF6'
+  },
   cardTitle: {
     ...theme.typography.subtitle2,
-    color: theme.colors.customOlive[50],
-    marginBottom: 8,
+    color: theme.colors.customOlive[100],
+    textAlign: 'center',
+  },
+  cardDescription: {
+    ...theme.typography.caption,
+    color: 'grey',
     textAlign: 'center',
   },
   button: {
+    marginTop: 8,
     width: '100%',
   },
 });

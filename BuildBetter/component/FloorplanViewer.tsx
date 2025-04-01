@@ -35,7 +35,7 @@ interface FloorplanViewerProps {
   isLandscape?: boolean;
 }
 
-const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLandscape = false }) => {
+const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLandscape = true }) => {
   const sortedFloorplans = [...floorplans].sort((a, b) => b.floor - a.floor);
   const [currentFloorIndex, setCurrentFloorIndex] = useState(sortedFloorplans.length - 1);
   const scale = useRef(new Animated.Value(1)).current;

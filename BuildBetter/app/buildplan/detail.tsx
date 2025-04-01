@@ -7,16 +7,18 @@ import FloorplanViewer from '@/component/FloorplanViewer';
 import Button from '@/component/Button';
 import { theme } from '../theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialSection } from '@/component/MaterialSection';
 
 const HouseResultPage = () => {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [is3D, setIs3D] = useState(true);
+  const [showMaterials, setShowMaterials] = useState(false);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   
   // For production, this would come from your API
-  const modelUri = 'https://c5fe-180-254-68-24.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://2dc0-180-254-76-107.ngrok-free.app/assets/rumah.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [
@@ -37,6 +39,10 @@ const HouseResultPage = () => {
   ];
 
   const goBack = () => {
+    if (showMaterials) {
+      setShowMaterials(false);
+      return;
+    }
     router.back();
   };
 
@@ -104,6 +110,10 @@ const HouseResultPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    setShowMaterials(false);
+  }, [isLandscape]);
+
   // Render landscape layout
   if (isLandscape) {
     return (
@@ -123,6 +133,13 @@ const HouseResultPage = () => {
               ) : (
                 <HouseViewer 
                   modelUri={modelUri}
+                />
+              )}
+
+              {showMaterials && (
+                <MaterialSection
+                  isLandscape={isLandscape}
+                  state={(data: boolean) => setShowMaterials(data)}
                 />
               )}
               
@@ -194,7 +211,7 @@ const HouseResultPage = () => {
                   variant="outline"
                   icon={<MaterialIcons name="grid-view" size={16}/>}
                   iconPosition='left'
-                  onPress={() => console.log('View materials')}
+                  onPress={() => setShowMaterials(!showMaterials)}
                   minHeight={10}
                   minWidth={50}
                   paddingHorizontal={16}
@@ -276,7 +293,7 @@ const HouseResultPage = () => {
                 variant="outline"
                 icon={<MaterialIcons name="grid-view" size={16}/>}
                 iconPosition='left'
-                onPress={() => console.log('View materials')}
+                onPress={() => setShowMaterials(!showMaterials)}
                 minHeight={10}
                 minWidth={50}
                 paddingHorizontal={16}
@@ -422,7 +439,7 @@ const styles = StyleSheet.create({
   landscapeViewerContainer: {
     flex: 1,
     position: 'relative',
-    padding: 8,
+    paddingVertical: 8,
   },
   landscapeRightSidebar: {
     position: 'absolute',
