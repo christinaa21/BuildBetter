@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
@@ -17,6 +17,10 @@ const HouseResultPage = () => {
   const [showMaterials, setShowMaterials] = useState(false);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  
+  // Add states for download notification
+  const [showDownloadNotification, setShowDownloadNotification] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
   
   // For production, this would come from your API
   const modelUri = 'https://d2bd-180-254-69-155.ngrok-free.app/assets/rumah.glb';
@@ -47,9 +51,39 @@ const HouseResultPage = () => {
     router.back();
   };
 
+  // Animation functions for the download notification
+  const showNotification = () => {
+    setShowDownloadNotification(true);
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2000), // Show for 2 seconds
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setShowDownloadNotification(false);
+    });
+  };
+
   const handleSaveDesign = () => {
-    Alert.alert('Success', 'Design has been saved successfully');
+    // Show success notification
+    showNotification();
     console.log('Design saved');
+    
+    // Here you would make your API call to confirm PDF download
+    // For example:
+    // downloadPDF().then(() => {
+    //   showNotification();
+    // }).catch(error => {
+    //   console.error('Download failed:', error);
+    //   Alert.alert('Error', 'Failed to download PDF');
+    // });
   };
 
   // Function to verify the model URL is accessible
@@ -233,6 +267,19 @@ const HouseResultPage = () => {
               />
             )}
           </View>
+          
+          {/* Show notification if active */}
+          {showDownloadNotification && (
+            <Animated.View style={[
+              styles.notificationContainer,
+              { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
+            ]}>
+              <View style={styles.notificationContent}>
+                <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
+                <Text style={styles.notificationText}>  PDF berhasil diunduh</Text>
+              </View>
+            </Animated.View>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -341,6 +388,19 @@ const HouseResultPage = () => {
             paddingVertical={6}
           />
         </View>
+        
+        {/* Show notification if active */}
+        {showDownloadNotification && (
+          <Animated.View style={[
+            styles.notificationContainer,
+            { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
+          ]}>
+            <View style={styles.notificationContent}>
+              <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
+              <Text style={styles.notificationText}>  PDF berhasil diunduh</Text>
+            </View>
+          </Animated.View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -470,6 +530,26 @@ const styles = StyleSheet.create({
   },
   copyrightText: {
     color: theme.colors.customGray[200],
+  },
+  notificationContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  notificationContent: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(14, 25, 23, 0.7)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationText: {
+    color: theme.colors.customWhite[50],
+    ...theme.typography.body2
   },
 });
 

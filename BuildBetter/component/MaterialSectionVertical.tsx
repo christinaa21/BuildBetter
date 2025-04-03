@@ -261,7 +261,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
         
         {/* Budget range display below filter buttons */}
         <Text style={styles.budgetRangeDisplay}>
-          Rentang budget: {getCurrentBudgetPriceRange()}
+          Rentang budget: {getCurrentBudgetPriceRange()}/m²
         </Text>
       </View>
     );

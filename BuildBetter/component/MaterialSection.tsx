@@ -236,7 +236,7 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
       // Calculate animation values
       const rangeWidth = budget.animation!.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, fixedWidth],
+        outputRange: [0, fixedWidth+20],
         extrapolate: 'clamp',
       });
       
@@ -279,7 +279,7 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
               ]}
               numberOfLines={1}
             >
-              ({budget.priceRange})
+              ({budget.priceRange})/m²
             </Text>
           </Animated.View>
         </Pressable>
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   },
   // Right section for budget filter and close button
   headerRightSection: {
-    flex: 0.75,
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   panelTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.customOlive[50],
-    flex: 0.25,
+    flex: 0.2,
     alignItems: 'flex-start',
     paddingLeft: 8
   },
