@@ -38,13 +38,13 @@ interface MaterialProps {
   state: (data: boolean) => void;
 }
 
-export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscape = true, state }) => {
+export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], isLandscape = false, state }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<string>('original');
   const panelAnimation = useRef(new Animated.Value(0)).current;
   const { height, width } = Dimensions.get('window');
-  const panelHeight = height * 0.5; // 50% of screen height
+  const panelHeight = height * 0.5; // Reduced to 60% of screen height (from 70%)
   
   // Create animated values for each budget option
   const originalAnimation = useRef(new Animated.Value(1)).current;
@@ -140,7 +140,6 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
-      // Add easing to make animation smoother
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     }).start(() => {
       setIsOpen(false);
@@ -155,7 +154,6 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
-        // Add easing to make animation smoother
         easing: Easing.out(Easing.ease),
       }).start();
     }
@@ -214,85 +212,59 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
     return materials && materials.length > 0;
   };
 
-  // Calculate the number of columns based on the number of materials (max 4)
+  // Get the current budget price range
+  const getCurrentBudgetPriceRange = () => {
+    const currentBudget = budgetOptions.find(budget => budget.id === selectedBudget);
+    return currentBudget?.priceRange || '';
+  };
+
+  // Calculate the number of columns based on the device width
   const getNumColumns = () => {
     const materialsCount = getMaterialsForCategory().length;
-    return Math.min(materialsCount === 0 ? 1 : materialsCount, 4);
+    // For vertical mode, we'll use 2 columns at most
+    return Math.min(materialsCount === 0 ? 1 : materialsCount, 2);
   };
 
   // Calculate transform values for the panel with optimized interpolation
   const translateY = panelAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [panelHeight, 0],
-    // Add extrapolate clamp to prevent overshooting
     extrapolate: 'clamp',
   });
 
-  // Memoize the rendered budget buttons to prevent unnecessary re-renders
+  // Render budget buttons in a column for vertical mode
   const renderBudgetButtons = () => {
-    return budgetOptions.map((budget) => {
-      const fixedWidth = budgetRangeWidths[budget.id as keyof typeof budgetRangeWidths] || budget.width || 0;
-      
-      // Calculate animation values
-      const rangeWidth = budget.animation!.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, fixedWidth],
-        extrapolate: 'clamp',
-      });
-      
-      // Calculate opacity for range text
-      const rangeOpacity = budget.animation!.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, 1],
-        extrapolate: 'clamp',
-      });
-      
-      return (
-        <Pressable
-          key={budget.id}
-          style={[
-            styles.budgetButton,
-            selectedBudget === budget.id && styles.selectedBudgetButton
-          ]}
-          onPress={() => handleBudgetSelect(budget.id)}
-        >
-          <Text
-            style={[
-              styles.budgetButtonText,
-              selectedBudget === budget.id && styles.selectedBudgetButtonText
-            ]}
-            numberOfLines={1}
-          >
-            {budget.title}
-          </Text>
-          <Animated.View 
-            style={{
-              width: rangeWidth,
-              opacity: rangeOpacity,
-              overflow: 'hidden',
-            }}
-          >
-            <Text
+    return (
+      <View>
+        <View style={styles.budgetFiltersVertical}>
+          {budgetOptions.map((budget) => (
+            <Pressable
+              key={budget.id}
               style={[
-                styles.budgetRangeText,
-                selectedBudget === budget.id && styles.selectedBudgetButtonText
+                styles.budgetButtonVertical,
+                selectedBudget === budget.id && styles.selectedBudgetButton
               ]}
-              numberOfLines={1}
+              onPress={() => handleBudgetSelect(budget.id)}
             >
-              ({budget.priceRange})
-            </Text>
-          </Animated.View>
-        </Pressable>
-      );
-    });
-  };
-
-  const getContainerWidth = () => {
-    const materialsCount = getMaterialsForCategory().length;
-    if (materialsCount <= 1) return '90%';
-    if (materialsCount === 2) return '50%';
-    if (materialsCount === 3) return '70%';
-    return '90%';
+              <Text
+                style={[
+                  styles.budgetButtonText,
+                  selectedBudget === budget.id && styles.selectedBudgetButtonText
+                ]}
+                numberOfLines={1}
+              >
+                {budget.title}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        
+        {/* Budget range display below filter buttons */}
+        <Text style={styles.budgetRangeDisplay}>
+          Rentang budget: {getCurrentBudgetPriceRange()}
+        </Text>
+      </View>
+    );
   };
 
   // Render empty state when no materials are available
@@ -322,7 +294,7 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
         ))}
       </View>
 
-      {/* Material Panel with hardware acceleration */}
+      {/* Material Panel */}
       <Animated.View 
         style={[
           styles.panel,
@@ -331,12 +303,11 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
             transform: [{ translateY }]
           }
         ]}
-        // Add hardware acceleration hint
         renderToHardwareTextureAndroid={true}
         shouldRasterizeIOS={true}
       >
-
-        <View style={styles.panelHeader}>
+        <View style={styles.panelHeaderVertical}>
+          <View style={styles.headerTopRow}>
             {selectedCategory && (
               <Pressable onPress={() => setSelectedCategory(null)} style={styles.backButton}>
                 <MaterialIcons name="chevron-left" size={24} color={theme.colors.customGreen[300]} />
@@ -349,29 +320,26 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
                 : "Material"
               }
             </Text>
-
-          <View style={styles.headerRightSection}>
-            <View style={styles.budgetFilterContainer}>
-              {renderBudgetButtons()}
-            </View>
             
             <Pressable onPress={closePanel} style={styles.closeButton}>
               <MaterialIcons name="close" size={24} color={theme.colors.customGreen[300]} />
             </Pressable>
           </View>
+          
+          {/* Budget filter options and range display */}
+          {renderBudgetButtons()}
         </View>
 
         {/* Panel Content */}
         <ScrollView 
           style={styles.panelContent}
           removeClippedSubviews={Platform.OS === 'android'}
-          showsVerticalScrollIndicator={false}
           contentContainerStyle={selectedCategory && !hasMaterialData() ? {flex: 1} : {}}
         >
           {!selectedCategory ? (
             <GridContainer
               data={materialTypes}
-              numColumns={6}
+              numColumns={3} // 3 columns for categories in vertical mode
               columnSpacing={8}
               rowSpacing={8}
               renderItem={(item) => (
@@ -380,7 +348,7 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
                   title={item.title}
                   onButtonPress={() => handleCategorySelect(item.id.toString())}
                   showButton={false}
-                  style={styles.categoryCard}
+                  style={styles.categoryCardVertical}
                 />
               )}
             />
@@ -388,38 +356,23 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
             renderEmptyState()
           ) : (
             <View style={styles.materialsContainer}>
-              {getNumColumns() > 1 ? (
-                <GridContainer
-                  data={getMaterialsForCategory()}
-                  numColumns={getNumColumns()}
-                  columnSpacing={16}
-                  renderItem={(item) => (
-                    <Card
-                      image={item.image}
-                      title={item.title}
-                      description={item.description}
-                      showButton={false}
-                      imageStyle={styles.materialImage}
-                      style={styles.materialCard}
-                    />
-                  )}
-                  contentContainerStyle={[
-                    styles.gridContainer, 
-                    { width: getContainerWidth() }
-                  ]}
-                />
-              ) : (
-                <View style={{alignSelf: 'center'}}>
+              <GridContainer
+                data={getMaterialsForCategory()}
+                numColumns={getNumColumns()}
+                columnSpacing={16}
+                rowSpacing={16}
+                renderItem={(item) => (
                   <Card
-                    image={getMaterialsForCategory()[0].image}
-                    title={getMaterialsForCategory()[0].title}
-                    description={getMaterialsForCategory()[0].description}
+                    image={item.image}
+                    title={item.title}
+                    description={item.description}
                     showButton={false}
                     imageStyle={styles.materialImage}
-                    style={styles.materialCard}
+                    style={styles.materialCardVertical}
                   />
-                </View>
-              )}
+                )}
+                contentContainerStyle={styles.gridContainerVertical}
+              />
             </View>
           )}
         </ScrollView>
@@ -442,68 +395,64 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.customWhite[50],
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 10,
+    borderColor: "rgba(171, 196, 190, 0.6)",
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     zIndex: 1001,
     overflow: 'hidden',
   },
-  // Improved single row header with three sections
-  panelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+  // Vertical header layout
+  panelHeaderVertical: {
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
-    marginHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.customGreen[50],
   },
-  // Right section for budget filter and close button
-  headerRightSection: {
-    flex: 0.75,
+  // Top row with title and close button
+  headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center', // Center the title horizontally
     alignItems: 'center',
+    marginBottom: 12,
+    position: 'relative', // For absolute positioning of back/close buttons
   },
   panelTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.customOlive[50],
-    flex: 0.25,
-    alignItems: 'flex-start',
-    paddingLeft: 8
+    textAlign: 'center', // Center the text
   },
   backButton: {
     padding: 4,
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
   },
   closeButton: {
     padding: 4,
-    marginLeft: 8,
+    position: 'absolute',
+    right: 0,
+    zIndex: 1,
   },
-  // Improved budget filter container
-  budgetFilterContainer: {
+  // Vertical budget filters
+  budgetFiltersVertical: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 8,
   },
-  // Smaller, more compact budget buttons
-  budgetButton: {
-    paddingVertical: 4,
+  budgetButtonVertical: {
+    flex: 1,
+    paddingVertical: 6,
     paddingHorizontal: 8,
     marginHorizontal: 4,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: theme.colors.customGreen[300],
     backgroundColor: 'transparent',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'nowrap',
-    overflow: 'hidden',
-    minWidth: 80,
   },
   selectedBudgetButton: {
     backgroundColor: theme.colors.customGreen[300],
@@ -521,6 +470,11 @@ const styles = StyleSheet.create({
     color: theme.colors.customGreen[500],
     marginLeft: 4,
   },
+  budgetRangeDisplay: {
+    ...theme.typography.caption,
+    color: theme.colors.customGreen[500],
+    textAlign: 'center',
+  },
   selectedBudgetButtonText: {
     color: theme.colors.customWhite[50],
   },
@@ -531,30 +485,35 @@ const styles = StyleSheet.create({
   },
   materialsContainer: {
     flex: 1,
-    width: '100%'
+    width: '100%',
   },
-  gridContainer: {
-    width: '90%',
+  // Adjusted grid container for vertical layout
+  gridContainerVertical: {
+    width: '100%',
     alignSelf: 'center',
+    paddingBottom: 16,
   },
-  categoryCard: {
+  // Adjusted category cards for vertical layout
+  categoryCardVertical: {
     padding: 12,
     backgroundColor: '#CAE1DB',
     aspectRatio: 1,
+    minHeight: 100,
   },
   materialImage: {
     width: 80,
     height: 50,
     alignSelf: 'center',
   },
-  materialCard: {
+  // Material cards for vertical layout
+  materialCardVertical: {
     width: '100%',
-    maxWidth: 160,
-    paddingHorizontal: 28,
     backgroundColor: '#CAE1DB',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  // New empty state styles
+  // Empty state styles
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',

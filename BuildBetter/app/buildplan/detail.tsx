@@ -8,6 +8,7 @@ import Button from '@/component/Button';
 import { theme } from '../theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
+import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
 
 const HouseResultPage = () => {
   const router = useRouter();
@@ -18,7 +19,7 @@ const HouseResultPage = () => {
   const isLandscape = width > height;
   
   // For production, this would come from your API
-  const modelUri = 'https://2dc0-180-254-76-107.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://d2bd-180-254-69-155.ngrok-free.app/assets/rumah.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [
@@ -284,6 +285,13 @@ const HouseResultPage = () => {
             ) : (
               <HouseViewer 
                 modelUri={modelUri}
+              />
+            )}
+
+            {showMaterials && (
+              <MaterialSectionVertical
+                isLandscape={isLandscape}
+                state={(data: boolean) => setShowMaterials(data)}
               />
             )}
 
