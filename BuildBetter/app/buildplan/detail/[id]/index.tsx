@@ -5,7 +5,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
 import FloorplanViewer from '@/component/FloorplanViewer';
 import Button from '@/component/Button';
-import { theme } from '../theme';
+import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
 import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
@@ -18,12 +18,13 @@ const HouseResultPage = () => {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   
-  // Add states for download notification
-  const [showDownloadNotification, setShowDownloadNotification] = useState(false);
+  // Add states for notification
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationType, setNotificationType] = useState<'save' | 'download'>('download');
   const fadeAnim = useState(new Animated.Value(0))[0];
   
   // For production, this would come from your API
-  const modelUri = 'https://d2bd-180-254-69-155.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://701f-182-0-241-79.ngrok-free.app/assets/rumah.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [
@@ -51,9 +52,10 @@ const HouseResultPage = () => {
     router.back();
   };
 
-  // Animation functions for the download notification
-  const showNotification = () => {
-    setShowDownloadNotification(true);
+  // Animation functions for the notification
+  const showNotificationAnimation = (type: 'save' | 'download') => {
+    setNotificationType(type);
+    setShowNotification(true);
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -67,23 +69,23 @@ const HouseResultPage = () => {
         useNativeDriver: true,
       })
     ]).start(() => {
-      setShowDownloadNotification(false);
+      setShowNotification(false);
     });
   };
 
-  const handleSaveDesign = () => {
+  const handleAction = (action: 'save' | 'download') => {
     // Show success notification
-    showNotification();
-    console.log('Design saved');
+    showNotificationAnimation(action);
     
-    // Here you would make your API call to confirm PDF download
-    // For example:
-    // downloadPDF().then(() => {
-    //   showNotification();
-    // }).catch(error => {
-    //   console.error('Download failed:', error);
-    //   Alert.alert('Error', 'Failed to download PDF');
-    // });
+    if (action === 'save') {
+      console.log('Design saved');
+      // Here you would make your API call to save the design
+      // saveDesign().then(...).catch(...);
+    } else {
+      console.log('PDF downloaded');
+      // Here you would make your API call to download PDF
+      // downloadPDF().then(...).catch(...);
+    }
   };
 
   // Function to verify the model URL is accessible
@@ -148,6 +150,13 @@ const HouseResultPage = () => {
   useEffect(() => {
     setShowMaterials(false);
   }, [isLandscape]);
+
+  // Helper function to get notification message based on type
+  const getNotificationMessage = () => {
+    return notificationType === 'save' 
+      ? 'Desain berhasil disimpan'
+      : 'PDF berhasil diunduh';
+  };
 
   // Render landscape layout
   if (isLandscape) {
@@ -222,61 +231,60 @@ const HouseResultPage = () => {
             </View>
           </View>
 
+          {is3D && (
+            <Button 
+              title="Material" 
+              variant="outline"
+              icon={<MaterialIcons name="grid-view" size={16}/>}
+              iconPosition='left'
+              onPress={() => setShowMaterials(!showMaterials)}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
+              style={{position: 'absolute', right: '70%', bottom: '60%'}}
+            />
+          )}
+
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
               <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget</Text>
               <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
             </View>
             
-            {is3D ? (
-              <>
-                <Button 
-                  title="Simpan" 
-                  variant="primary"
-                  icon={<MaterialIcons name="bookmark" size={16}/>}
-                  iconPosition='left'
-                  onPress={handleSaveDesign}
-                  minHeight={10}
-                  minWidth={50}
-                  paddingHorizontal={16}
-                  paddingVertical={6}
-                />
-                <Button 
-                  title="Material" 
-                  variant="outline"
-                  icon={<MaterialIcons name="grid-view" size={16}/>}
-                  iconPosition='left'
-                  onPress={() => setShowMaterials(!showMaterials)}
-                  minHeight={10}
-                  minWidth={50}
-                  paddingHorizontal={16}
-                  paddingVertical={8}
-                />
-              </>
-            ) : (
-              <Button 
-                title="Simpan" 
-                variant="primary"
-                icon={<MaterialIcons name="bookmark" size={16}/>}
-                iconPosition='left'
-                onPress={handleSaveDesign}
-                minHeight={10}
-                minWidth={50}
-                paddingHorizontal={16}
-                paddingVertical={6}
-              />
-            )}
+            <Button 
+              title="Unduh PDF" 
+              variant="primary"
+              icon={<MaterialIcons name="download" size={16}/>}
+              iconPosition='left'
+              onPress={() => handleAction('download')}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
+            />
+            <Button 
+              title="Simpan" 
+              variant="outline"
+              icon={<MaterialIcons name="bookmark" size={16}/>}
+              iconPosition='left'
+              onPress={() => handleAction('save')}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
+            />
           </View>
           
           {/* Show notification if active */}
-          {showDownloadNotification && (
+          {showNotification && (
             <Animated.View style={[
               styles.notificationContainer,
               { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
             ]}>
               <View style={styles.notificationContent}>
                 <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
-                <Text style={styles.notificationText}>  PDF berhasil diunduh</Text>
+                <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
               </View>
             </Animated.View>
           )}
@@ -375,29 +383,42 @@ const HouseResultPage = () => {
             <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
             <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
           </View>
-          
-          <Button 
-            title="Simpan" 
-            variant="primary"
-            icon={<MaterialIcons name="bookmark" size={16}/>}
-            iconPosition='left'
-            onPress={handleSaveDesign}
-            minHeight={10}
-            minWidth={50}
-            paddingHorizontal={16}
-            paddingVertical={6}
-          />
+
+          <View style={styles.buttonContainer}>
+            <Button 
+              title="Simpan" 
+              variant="outline"
+              icon={<MaterialIcons name="bookmark" size={16}/>}
+              iconPosition='left'
+              onPress={() => handleAction('save')}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
+            />
+            <Button 
+              title="Unduh PDF" 
+              variant="primary"
+              icon={<MaterialIcons name="download" size={16}/>}
+              iconPosition='left'
+              onPress={() => handleAction('download')}
+              minHeight={10}
+              minWidth={50}
+              paddingHorizontal={16}
+              paddingVertical={6}
+            />
+          </View>
         </View>
         
         {/* Show notification if active */}
-        {showDownloadNotification && (
+        {showNotification && (
           <Animated.View style={[
             styles.notificationContainer,
             { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
           ]}>
             <View style={styles.notificationContent}>
               <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
-              <Text style={styles.notificationText}>  PDF berhasil diunduh</Text>
+              <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
             </View>
           </Animated.View>
         )}
@@ -465,14 +486,10 @@ const styles = StyleSheet.create({
   budgetInfo: {
     flex: 1,
   },
-  infoLabel: {
-    fontSize: 14,
-    color: '#757575',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+  buttonContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 8,
   },
   copyrightContainer: {
     position: 'absolute',

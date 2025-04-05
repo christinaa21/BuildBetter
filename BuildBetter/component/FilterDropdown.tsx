@@ -194,7 +194,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
           minWidth={buttonWidth}
           minHeight={10}
           disabled={disabled}
-          paddingVertical={8}
+          paddingVertical={6}
           paddingHorizontal={16}
         />
       </View>

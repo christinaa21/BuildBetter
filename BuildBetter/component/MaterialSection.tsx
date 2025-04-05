@@ -401,6 +401,7 @@ export const MaterialSection: React.FC<MaterialProps> = ({ data = [], isLandscap
                       showButton={false}
                       imageStyle={styles.materialImage}
                       style={styles.materialCard}
+                      touchable={false}
                     />
                   )}
                   contentContainerStyle={[
@@ -450,7 +451,6 @@ const styles = StyleSheet.create({
     zIndex: 1001,
     overflow: 'hidden',
   },
-  // Improved single row header with three sections
   panelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

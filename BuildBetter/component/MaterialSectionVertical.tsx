@@ -369,6 +369,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
                     showButton={false}
                     imageStyle={styles.materialImage}
                     style={styles.materialCardVertical}
+                    touchable={false}
                   />
                 )}
                 contentContainerStyle={styles.gridContainerVertical}

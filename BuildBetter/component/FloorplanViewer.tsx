@@ -109,7 +109,7 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
     <GestureHandlerRootView style={styles.container}>
       <PanGestureHandler
         onHandlerStateChange={onPanGestureEvent}
-        activeOffsetY={[-20, 20]} // Make the pan gesture activate after 20px of movement
+        activeOffsetY={[-20, 20]}
       >
         <View style={styles.panGestureContainer}>
           <PinchGestureHandler
@@ -140,7 +140,7 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
       </PanGestureHandler>
       
       {floorplans.length > 1 && (
-        <View style={[styles.floorIndicator, {right: isLandscape ? '1%' : '6%'}, {bottom: isLandscape ? '40%' : '1%'}]}>
+        <View style={[styles.floorIndicator, {right: isLandscape ? '70%' : '6%'}, {bottom: isLandscape ? '58%' : '1%'}]}>
           <FilterDropdown 
             options={floorFilterOptions}
             selectedValues={[currentFloorIndex]}

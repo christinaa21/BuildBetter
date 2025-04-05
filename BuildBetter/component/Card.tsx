@@ -6,7 +6,7 @@ import theme from '@/app/theme';
 interface CardProps {
   title: string;
   image?: ImageSourcePropType;
-  icon?:React.ReactNode;
+  icon?: React.ReactNode;
   buttonTitle?: string;
   description?: string;
   onButtonPress?: () => void;
@@ -14,6 +14,7 @@ interface CardProps {
   style?: object;
   buttonVariant?: 'primary' | 'outline';
   showButton?: boolean;
+  touchable?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -27,38 +28,47 @@ export const Card: React.FC<CardProps> = ({
   style,
   buttonVariant = 'outline',
   showButton = true,
+  touchable = true,
 }) => {
-  return (
-    <TouchableOpacity activeOpacity={0.4}>
-      <View style={[styles.card, style]} onTouchEnd={onButtonPress}>
-        {image && (
-          <Image 
-              source={image} 
-              style={[styles.cardImage, imageStyle]} 
-              resizeMode="cover"
+  // Card content component to avoid duplication
+  const CardContent = () => (
+    <View style={[styles.card, style]}>
+      {image && (
+        <Image 
+            source={image} 
+            style={[styles.cardImage, imageStyle]} 
+            resizeMode="cover"
+        />
+      )}
+      {icon && !image && (
+        <View style={styles.iconContainer}>
+          {icon}
+        </View>
+      )}
+      <Text style={styles.cardTitle}>{title}</Text>
+      {description && (
+        <Text style={styles.cardDescription}>{description}</Text>
+      )}
+      {buttonTitle && showButton && (
+          <Button
+          title={buttonTitle}
+          variant={buttonVariant}
+          onPress={onButtonPress}
+          style={styles.button}
+          minHeight={24}
+          paddingVertical={8}
           />
-        )}
-        {icon && !image && (
-          <View style={styles.iconContainer}>
-            {icon}
-          </View>
-        )}
-        <Text style={styles.cardTitle}>{title}</Text>
-        {description && (
-          <Text style={styles.cardDescription}>{description}</Text>
-        )}
-        {buttonTitle && showButton && (
-            <Button
-            title={buttonTitle}
-            variant={buttonVariant}
-            onPress={onButtonPress}
-            style={styles.button}
-            minHeight={24}
-            paddingVertical={8}
-            />
-        )}
-      </View>
+      )}
+    </View>
+  );
+
+  // Conditionally wrap content in TouchableOpacity based on touchable prop
+  return touchable ? (
+    <TouchableOpacity activeOpacity={0.4} onPress={onButtonPress}>
+      <CardContent />
     </TouchableOpacity>
+  ) : (
+    <CardContent />
   );
 };
 
