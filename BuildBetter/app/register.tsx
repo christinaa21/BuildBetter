@@ -8,14 +8,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image
+  Image,
+  Alert
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import Textfield from '@/component/Textfield';
 import { useRouter } from 'expo-router';
 import Button from '@/component/Button';
 import {theme} from './theme';
 import Dropdown from '@/component/Dropdown';
 import locationData from '@/data/location.json';
+import { authApi } from '@/services/api';
 
 interface RegisterFormData {
   email: string;
@@ -35,11 +38,6 @@ interface ValidationState {
   city: boolean;
   password: boolean;
   password2: boolean;
-}
-
-interface PhoneValidationResult {
-  isValid: boolean;
-  formattedPhone: string;
 }
 
 const Register = () => {
@@ -221,27 +219,76 @@ const Register = () => {
     }
     
     const formattedPhone = formatPhoneNumber(formData.phone);
-    const finalFormData = {
-      ...formData,
-      phone: formattedPhone
-    };
-
+    
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // Add your actual register logic here
-      console.log('Register successful', formData);
+      // Get province and city labels from their values for the API
+      const provinceObj = locationData.provinces.find(p => p.value === formData.province);
+      const cityObj = provinceObj?.cities.find(c => c.value === formData.city);
+      
+      const provinceLabel = provinceObj?.label || formData.province;
+      const cityLabel = cityObj?.label || formData.city;
+
+      // Prepare API request data - map our form fields to the expected API format
+      const registerData = {
+        phoneNumber: formattedPhone,
+        email: formData.email,
+        username: formData.name,  // Using name as username
+        province: provinceLabel,
+        city: cityLabel,
+        password: formData.password
+      };
+
+      // Call the register API
+      const response = await authApi.register(registerData);
+      
+      if (response.code === 201) {
+        console.log('Register successful', response.data);
+        
+        // Store the email for the OTP verification
+        await SecureStore.setItemAsync('userEmail', formData.email);
+        
+        // Send OTP to the registered email
+        const otpResponse = await authApi.sendOtp(formData.email);
+        
+        if (otpResponse.code === 200) {
+          Alert.alert(
+            'Registration Successful',
+            'Verification code has been sent to your email.',
+            [{ text: 'OK', onPress: () => router.push('/otp') }]
+          );
+        } else {
+          Alert.alert(
+            'OTP Sending Failed',
+            otpResponse.error || 'Failed to send verification code. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        // Handle API error responses
+        console.error('Register failed', response.error);
+        
+        // Format the error messages for display
+        let errorMessage = 'Something went wrong. Please try again.';
+        if (response.error && Array.isArray(response.error) && response.error.length > 0) {
+          errorMessage = response.error.join('\n');
+        }
+        
+        Alert.alert(
+          'Registration Failed',
+          errorMessage,
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
-      console.error('Register failed', error);
-      setErrors({
-        email: 'Invalid credentials',
-        phone: 'Invalid credentials',
-        password: 'Invalid credentials',
-      });
+      console.error('Register request failed', error);
+      Alert.alert(
+        'Error',
+        'Unable to connect to the server. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsLoading(false);
-      router.push('/otp');
     }
   };
 
@@ -307,10 +354,6 @@ const Register = () => {
                 validate={validatePhone}
                 onValidation={(isValid) => {
                   handleValidation('phone', isValid);
-                  if (isValid) {
-                    const formattedPhone = formatPhoneNumber(formData.phone);
-                    setFormData(prev => ({ ...prev, phone: formattedPhone }));
-                  }
                 }}
                 keyboardType="phone-pad"
               />

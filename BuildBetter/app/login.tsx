@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image
+  Image,
+  Alert,
+  BackHandler
 } from 'react-native';
 import Textfield from '@/component/Textfield';
 import { Link, useRouter } from 'expo-router';
 import Button from '@/component/Button';
-import {theme} from './theme';
+import { theme } from './theme';
+import { useAuth } from '@/context/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -41,6 +44,27 @@ const Login = () => {
   });
 
   const buttonAnimation = new Animated.Value(0);
+  const { login, isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  // Prevent going back to login page if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)/home');
+    }
+  }, [isAuthenticated]);
+
+  // Handle hardware back button on Android
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isAuthenticated) {
+        return true; // Prevent going back
+      }
+      return false; // Allow default behavior
+    });
+
+    return () => backHandler.remove();
+  }, [isAuthenticated]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,7 +75,7 @@ const Login = () => {
 
   const validatePassword = (password: string) => {
     if (!password) return 'Harap masukkan kata sandi';
-    if (password.length < 8) return 'Kata sandi harus terdiri dari setidaknya 8 karakter';
+    // Removed minimum 8-character validation
     return undefined;
   };
 
@@ -61,8 +85,6 @@ const Login = () => {
       [field]: isFieldValid,
     }));
   };
-
-  const router = useRouter();
 
   const handleLogin = async () => {
     Keyboard.dismiss();
@@ -82,19 +104,35 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // Add your actual login logic here
-      console.log('Login successful', formData);
+      const response = await login(formData.email, formData.password);
+      
+      if (response.code === 200) {
+        console.log('Login successful');
+        router.replace('/(tabs)/home');
+      } else {
+        // Handle specific error cases
+        if (response.error === 'User not verified') {
+          Alert.alert('Akun belum terverifikasi', 'Silakan verifikasi email Anda terlebih dahulu.');
+        } else if (response.error === 'Invalid password') {
+          setErrors({
+            password: 'Kata sandi salah',
+          });
+          // Error will persist until user changes password field
+        } else {
+          // Generic error handling
+          Alert.alert('Gagal login', response.error || 'Terjadi kesalahan saat login');
+        }
+        animateButton();
+      }
     } catch (error) {
       console.error('Login failed', error);
-      setErrors({
-        email: 'Invalid credentials',
-        password: 'Invalid credentials',
-      });
+      Alert.alert(
+        'Gagal Login',
+        'Terjadi kesalahan saat menghubungi server. Silakan coba lagi nanti.'
+      );
+      animateButton();
     } finally {
       setIsLoading(false);
-      router.replace('/(tabs)/home');
     }
   };
 
@@ -154,6 +192,7 @@ const Login = () => {
                 value={formData.password}
                 onChangeText={(text) => {
                   setFormData(prev => ({ ...prev, password: text }));
+                  // Only clear password error when user changes the input
                   setErrors(prev => ({ ...prev, password: undefined }));
                 }}
                 error={errors.password}

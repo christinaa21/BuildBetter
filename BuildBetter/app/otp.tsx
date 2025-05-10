@@ -14,6 +14,8 @@ import {
 import { useRouter } from 'expo-router';
 import Button from '@/component/Button';
 import { theme } from './theme';
+import * as SecureStore from 'expo-secure-store';
+import { authApi } from '@/services/api';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
@@ -22,8 +24,27 @@ const OTP = () => {
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [isLoading, setIsLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [userEmail, setUserEmail] = useState<string>('');
   const inputRefs = useRef<TextInput[]>([]);
   const router = useRouter();
+
+  // Fetch the email when component mounts
+  useEffect(() => {
+    const getEmail = async () => {
+      const email = await SecureStore.getItemAsync('userEmail');
+      if (email) {
+        setUserEmail(email);
+      } else {
+        Alert.alert(
+          'Error',
+          'Email not found. Please go back and try registering again.',
+          [{ text: 'OK', onPress: () => router.replace('/register') }]
+        );
+      }
+    };
+    
+    getEmail();
+  }, [router]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -59,17 +80,25 @@ const OTP = () => {
   };
 
   const handleResendOtp = async () => {
-    if (cooldown > 0) return;
+    if (cooldown > 0 || !userEmail) return;
     
     try {
       setIsLoading(true);
-      // Add your OTP resend logic here
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       
-      Alert.alert('Berhasil', 'Kode OTP telah dikirimkan kembali melalui SMS.');
-      setCooldown(RESEND_COOLDOWN);
+      const response = await authApi.sendOtp(userEmail);
+      
+      if (response.code === 200) {
+        Alert.alert('Berhasil', 'Kode OTP telah dikirimkan kembali melalui email.');
+        setCooldown(RESEND_COOLDOWN);
+      } else {
+        Alert.alert(
+          'Error', 
+          response.error || 'Gagal mengirimkan ulang kode OTP. Mohon coba lagi nanti'
+        );
+      }
     } catch (error) {
       Alert.alert('Error', 'Gagal mengirimkan ulang kode OTP. Mohon coba lagi nanti');
+      console.error('Resend OTP error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -82,15 +111,30 @@ const OTP = () => {
       return;
     }
 
+    if (!userEmail) {
+      Alert.alert('Error', 'Email tidak tersedia. Silakan kembali ke halaman registrasi.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Add your OTP verification logic here
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const response = await authApi.verifyOtp(userEmail, otpString);
       
-      // If verification successful, navigate to next screen
-      router.replace('/otp-success');
+      if (response.code === 200) {
+        // If verification successful, navigate to success screen
+        router.replace('/otp-success');
+      } else {
+        Alert.alert(
+          'Error', 
+          response.error || 'Kode OTP salah. Mohon masukkan kode OTP yang benar.'
+        );
+        // Clear OTP fields on error
+        setOtp(Array(OTP_LENGTH).fill(''));
+        inputRefs.current[0]?.focus();
+      }
     } catch (error) {
-      Alert.alert('Error', 'Kode OTP salah. Mohon masukkan kode OTP yang benar.');
+      Alert.alert('Error', 'Gagal memverifikasi OTP. Mohon coba lagi nanti.');
+      console.error('Verify OTP error:', error);
       // Clear OTP fields on error
       setOtp(Array(OTP_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
@@ -109,7 +153,7 @@ const OTP = () => {
           <View style={styles.header}>
             <Text style={[styles.title, theme.typography.title]}>Verifikasi OTP</Text>
             <Text style={[styles.subtitle, theme.typography.body1]}>
-              Masukkan kode OTP yang telah dikirim melalui SMS ke nomor telepon Anda.
+              Masukkan kode OTP yang telah dikirim melalui email ke {userEmail || 'email Anda'}.
             </Text>
           </View>
 

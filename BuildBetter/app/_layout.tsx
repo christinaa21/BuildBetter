@@ -13,6 +13,7 @@ import {
   Poppins_700Bold,
   Poppins_700Bold_Italic,
 } from "@expo-google-fonts/poppins";
+import { AuthProvider } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,78 +38,80 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {/* Auth screens */}
-      <Stack.Screen 
-        name="register" 
-        options={{
-          headerShown: true,
-          headerTitle: "Daftar Akun",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="otp" 
-        options={{
-          headerShown: true,
-          headerTitle: "Daftar Akun",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="forgot-password" 
-        options={{
-          headerShown: true,
-          headerTitle: "Lupa Kata Sandi",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="buildplan/onboarding" 
-        options={{
-          headerShown: true,
-          headerTitle: "BuildPlan",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="buildplan/screening" 
-        options={{
-          headerShown: true,
-          headerTitle: "BuildPlan",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="buildplan/result" 
-        options={{
-          headerShown: true,
-          headerTitle: "Hasil",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-      <Stack.Screen 
-        name="buildplan/saved" 
-        options={{
-          headerShown: true,
-          headerTitle: "Tersimpan",
-          headerTintColor: theme.colors.customGreen[300],
-          headerTitleAlign: 'center',
-          headerTitleStyle: theme.typography.title,
-        }}
-      />
-    </Stack>
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Auth screens */}
+        <Stack.Screen 
+          name="register" 
+          options={{
+            headerShown: true,
+            headerTitle: "Daftar Akun",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="otp" 
+          options={{
+            headerShown: true,
+            headerTitle: "Daftar Akun",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="forgot-password" 
+          options={{
+            headerShown: true,
+            headerTitle: "Lupa Kata Sandi",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="buildplan/onboarding" 
+          options={{
+            headerShown: true,
+            headerTitle: "BuildPlan",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="buildplan/screening" 
+          options={{
+            headerShown: true,
+            headerTitle: "BuildPlan",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="buildplan/result" 
+          options={{
+            headerShown: true,
+            headerTitle: "Hasil",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="buildplan/saved" 
+          options={{
+            headerShown: true,
+            headerTitle: "Tersimpan",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+      </Stack>
+    </AuthProvider>
   );
 }
