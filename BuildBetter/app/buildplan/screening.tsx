@@ -26,23 +26,6 @@ interface FormData {
   };
 }
 
-interface ApiSubmissionData {
-  location: {
-    province: string;
-    city: string;
-  };
-  condition: {
-    shape: string;
-    area: number;
-    wind_direction: string;
-  };
-  design: {
-    design_style: string;
-    floor: number;
-    room: number;
-  };
-}
-
 const Screening = () => {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
@@ -57,7 +40,7 @@ const Screening = () => {
     condition: {
       shape: 'Persegi Panjang',
       area: '',
-      wind_direction: 'Utara',
+      wind_direction: 'north',
     },
     design: {
       design_style: '',
@@ -113,21 +96,42 @@ const Screening = () => {
   ] as const;
 
   const submitFormData = async (data: FormData) => {
-    console.log('Preparing form data for submission:', data);
-    
-    // Convert area from string to number for API submission
-    const apiData: ApiSubmissionData = {
-      ...data,
-      condition: {
-        ...data.condition,
-        area: parseFloat(data.condition.area) || 0
-      }
+    // Capitalize province and city
+    const capitalizeWords = (str: string) => 
+      str.replace(/\b\w/g, (char) => char.toUpperCase());
+
+    const apiData = {
+      style: data.design.design_style,
+      landArea: parseFloat(data.condition.area) || 0,
+      floor: data.design.floor,
+      entranceDirection: data.condition.wind_direction,
+      province: capitalizeWords(data.location.province),
+      city: capitalizeWords(data.location.city),
+      landform: data.condition.shape,
+      rooms: data.design.room
     };
-    
-    console.log('Submitting form data to API:', apiData);
-    // Add your API call or other submission logic here
-    
-    router.push('./result');
+
+    try {
+      setIsLoading(true);
+      const response = await authApi.generateSuggestions(apiData);
+      
+      if (response.code === 200) {
+        router.push({
+          pathname: './result',
+          params: { 
+            suggestions: JSON.stringify(response.data.suggestions),
+            userInput: JSON.stringify(response.data.userInput)
+          }
+        });
+      } else {
+        alert('Failed to get suggestions');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      alert('Submission failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleNext = (stepData: any) => {

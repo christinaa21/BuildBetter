@@ -185,7 +185,20 @@ export const authApi = {
         error: 'Network or server error. Please check your connection and try again.'
       };
     }
-  }
+  },
+
+  // Generate Suggestions
+  generateSuggestions: async (data: any): Promise<any> => {
+    try {
+      const response = await apiClient.post('/suggestions/generate', data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
 };
 
 export default apiClient;
