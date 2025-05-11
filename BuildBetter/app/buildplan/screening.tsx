@@ -1,23 +1,39 @@
-import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import LocationDimension from './components/LocationDimension';
-import EnvironmentCondition from './components/EnvironmentCondition';
+import { useState, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import Location from './components/Location';
+import Condition from './components/Condition';
 import DesignPreference from './components/DesignPreference';
 import ProgressSteps from '@/component/ProgressSteps';
 import theme from '../theme';
 import { useRouter } from 'expo-router';
+import { authApi } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface FormData {
   location: {
     province: string;
     city: string;
+  };
+  condition: {
     shape: string;
     area: string;
+    wind_direction: string;
   };
-  environment: {
-    land_condition: string;
-    soil_condition: string;
-    flood: boolean;
+  design: {
+    design_style: string;
+    floor: number;
+    room: number;
+  };
+}
+
+interface ApiSubmissionData {
+  location: {
+    province: string;
+    city: string;
+  };
+  condition: {
+    shape: string;
+    area: number;
     wind_direction: string;
   };
   design: {
@@ -29,20 +45,19 @@ interface FormData {
 
 const Screening = () => {
   const router = useRouter();
-  const step = ['Step 1', 'Step 2', 'Step 3']
+  const { isAuthenticated } = useAuth();
+  const step = ['Step 1', 'Step 2', 'Step 3'];
   const [currentStep, setCurrentStep] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<FormData>({
     location: {
-      province: 'jawa barat',
-      city: 'kota bandung',
-      shape: '',
-      area: '',
+      province: '',
+      city: '',
     },
-    environment: {
-      land_condition: '',
-      soil_condition: '',
-      flood: false,
-      wind_direction: '',
+    condition: {
+      shape: 'Persegi Panjang',
+      area: '',
+      wind_direction: 'Utara',
     },
     design: {
       design_style: '',
@@ -51,14 +66,45 @@ const Screening = () => {
     }
   });
 
+  // Fetch user data on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (isAuthenticated) {
+        try {
+          setIsLoading(true);
+          const response = await authApi.getUserProfile();
+          
+          if (response.code === 200 && response.data) {
+            // Update form data with user's location
+            setFormData(prev => ({
+              ...prev,
+              location: {
+                province: response.data?.province?.toLowerCase() ?? '',
+                city: response.data?.city?.toLowerCase() ?? '',
+              }
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [isAuthenticated]);
+
   const steps = [
     {
-      title: 'Lokasi dan Dimensi Lahan',
-      component: LocationDimension
+      title: 'Lokasi Pembangunan',
+      component: Location
     },
     {
-      title: 'Kondisi Lingkungan',
-      component: EnvironmentCondition
+      title: 'Kondisi Lahan',
+      component: Condition
     },
     {
       title: 'Preferensi Desain Rumah',
@@ -67,8 +113,20 @@ const Screening = () => {
   ] as const;
 
   const submitFormData = async (data: FormData) => {
-    console.log('Submitting form data:', data);
+    console.log('Preparing form data for submission:', data);
+    
+    // Convert area from string to number for API submission
+    const apiData: ApiSubmissionData = {
+      ...data,
+      condition: {
+        ...data.condition,
+        area: parseFloat(data.condition.area) || 0
+      }
+    };
+    
+    console.log('Submitting form data to API:', apiData);
     // Add your API call or other submission logic here
+    
     router.push('./result');
   };
 
@@ -102,15 +160,17 @@ const Screening = () => {
     }
   };
 
-  const handleFormComplete = () => {
-    // Handle the complete form data
-    console.log('Complete form data:', formData);
-    // Add your submission logic here
+  const getCurrentStepKey = (): keyof FormData => {
+    return ['location', 'condition', 'design'][currentStep] as keyof FormData;
   };
 
-  const getCurrentStepKey = (): keyof FormData => {
-    return ['location', 'environment', 'design'][currentStep] as keyof FormData;
-  };
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+      </View>
+    );
+  }
 
   const CurrentStepComponent = steps[currentStep].component;
 
@@ -134,6 +194,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   }
 });
 

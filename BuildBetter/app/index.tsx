@@ -1,12 +1,41 @@
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from './theme';
 import { typography } from './theme/typography';
 import ProgressButton from '@/component/ProgressButton';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '@/context/AuthContext';
+import { BackHandler } from 'react-native';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  // Redirect to home if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)/home');
+    }
+  }, [isAuthenticated]);
+
+  // Handle hardware back button on Android
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isAuthenticated) {
+        return true; // Prevent going back
+      }
+      return false; // Allow default behavior
+    });
+
+    return () => backHandler.remove();
+  }, [isAuthenticated]);
+
+  // If user is authenticated, don't render the landing page content at all
+  // This prevents flash of content before redirect happens
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <View style={styles.container} onTouchEnd={() => router.push('/landing2')}>

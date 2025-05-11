@@ -144,6 +144,7 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
                   {"label": "1", "value": 1},
                   {"label": "2", "value": 2},
                   {"label": "3", "value": 3},
+                  {"label": "4", "value": 4},
                 ]}
                 value={formData.floor}
                 onChange={handleFloorChange}
@@ -152,6 +153,7 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               <RadioGroup
                 label="Jumlah Kamar yang Akan Dibuat"
                 options={[
+                  {"label": "1", "value": 1},
                   {"label": "2", "value": 2},
                   {"label": "3", "value": 3},
                   {"label": "4", "value": 4},

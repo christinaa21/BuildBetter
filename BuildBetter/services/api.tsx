@@ -39,6 +39,24 @@ export interface RegisterData {
   password: string;
 }
 
+// User profile response type
+export interface UserProfileResponse {
+  code: number;
+  status: string;
+  data?: {
+    id: string;
+    phoneNumber: string;
+    email: string;
+    username: string;
+    province: string;
+    city: string;
+    photos: null | string[];
+    role: string;
+    createdAt: string;
+  };
+  error?: string;
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -149,6 +167,24 @@ export const authApi = {
     await SecureStore.deleteItemAsync('userEmail');
     await SecureStore.deleteItemAsync('userRole');
     await SecureStore.deleteItemAsync('username');
+  },
+
+  // Get user profile
+  getUserProfile: async (): Promise<UserProfileResponse> => {
+    try {
+      const response = await apiClient.get<UserProfileResponse>('/me');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as UserProfileResponse;
+      }
+      // Create a standardized error response for network or unexpected errors
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
   }
 };
 

@@ -2,10 +2,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import theme from '../theme';
 import Button from '@/component/Button';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LandingPage() {
   const router = useRouter();
-  const name = 'Yulia';
+  const { user } = useAuth();
+  const name = user?.username;
 
   return (
     <View style={styles.container}>

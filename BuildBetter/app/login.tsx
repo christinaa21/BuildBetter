@@ -44,7 +44,7 @@ const Login = () => {
   });
 
   const buttonAnimation = new Animated.Value(0);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, redirectUnverifiedUser } = useAuth();
   const router = useRouter();
 
   // Prevent going back to login page if already authenticated
@@ -112,7 +112,8 @@ const Login = () => {
       } else {
         // Handle specific error cases
         if (response.error === 'User not verified') {
-          Alert.alert('Akun belum terverifikasi', 'Silakan verifikasi email Anda terlebih dahulu.');
+          // Call our new function to handle unverified users
+          await redirectUnverifiedUser(formData.email);
         } else if (response.error === 'Invalid password') {
           setErrors({
             password: 'Kata sandi salah',

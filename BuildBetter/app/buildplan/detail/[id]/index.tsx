@@ -24,7 +24,7 @@ const HouseResultPage = () => {
   const fadeAnim = useState(new Animated.Value(0))[0];
   
   // For production, this would come from your API
-  const modelUri = 'https://b285-182-2-166-106.ngrok-free.app/assets/rumah.glb';
+  const modelUri = 'https://966f-180-254-72-168.ngrok-free.app/assets/17.glb';
   
   // Sample floorplan data - in a real app, this would come from your API
   const floorplans = [

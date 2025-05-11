@@ -40,7 +40,7 @@ const HouseCard: React.FC<{ house: House }> = ({ house }) => {
           <View style={styles.specsRow}>
             <View style={styles.specItem}>
               <MaterialIcons name="square-foot" size={16} color={theme.colors.customGreen[200]} />
-              <Text style={styles.specText}>{house.size}</Text>
+              <Text style={styles.specText}>{house.size} m²</Text>
             </View>
             
             <View style={styles.specItem}>

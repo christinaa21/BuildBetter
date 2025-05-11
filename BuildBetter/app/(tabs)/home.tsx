@@ -11,12 +11,14 @@ import Animated, {
   Extrapolate
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useAuth } from '@/context/AuthContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_TRANSLATE_Y = -SCREEN_HEIGHT + 0.45*SCREEN_HEIGHT;
 
 export default function HomeScreen() {
-  const name = 'Yulia';
+  const { user } = useAuth();
+  const name = user?.username;
   const router = useRouter();
   const translateY = useSharedValue(0);
   const context = useSharedValue({ y: 0 });
