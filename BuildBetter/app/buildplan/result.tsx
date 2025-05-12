@@ -36,14 +36,14 @@ interface Suggestion {
   buildingHeight: number;
   designer: string;
   defaultBudget: number;
-  budgetMin: number[];
-  budgetMax: number[];
-  floorplans: Array<File | null>;
-  object: File | null;
-  houseImageFront: File | null;
-  houseImageSide: File | null;
-  houseImageBack: File | null;
-  pdf: File | null;
+  budgetMin: number[]; //budgetMin[0] for ekonomis, budgetMin[1] for original, and budgetMin[2] for premium
+  budgetMax: number[]; //same like budgetMin but this one for the max
+  floorplans: Array<string>; //array of floorplans url
+  object: string; //3D house design, in url
+  houseImageFront: string; //image url
+  houseImageSide: string; //image url
+  houseImageBack: string; //image url
+  pdf: string; //pdf url
   materials0: MaterialCategory[];
   materials1: MaterialCategory[];
   materials2: MaterialCategory[];

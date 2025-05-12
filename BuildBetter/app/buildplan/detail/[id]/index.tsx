@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity, Animated, Linking } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
 import FloorplanViewer from '@/component/FloorplanViewer';
@@ -10,8 +10,73 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
 import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
 
-const HouseResultPage = () => {
+// Type definitions
+interface Material {
+  id: string;
+  name: string;
+  category: string;
+  subcategory: string;
+  image: string;
+}
+
+interface MaterialSubCategory {
+  subCategory: string;
+  materials: Material[];
+}
+
+interface MaterialCategory {
+  category: string;
+  subCategories: MaterialSubCategory[];
+}
+
+interface Suggestion {
+  id: string;
+  houseNumber: number | string;
+  landArea: number;
+  buildingArea: number;
+  style: string;
+  floor: number;
+  rooms: number;
+  buildingHeight: number;
+  designer: string;
+  defaultBudget: number;
+  budgetMin: number[]; // budgetMin[0] for ekonomis, budgetMin[1] for original, and budgetMin[2] for premium
+  budgetMax: number[]; // same like budgetMin but this one for the max
+  floorplans: Array<string>; // array of floorplans url
+  object: string; // 3D house design, in url
+  houseImageFront: string; // image url
+  houseImageSide: string; // image url
+  houseImageBack: string; // image url
+  pdf: string; // pdf url
+  materials0: MaterialCategory[]; // ekonomis
+  materials1: MaterialCategory[]; // original
+  materials2: MaterialCategory[]; // premium
+}
+
+interface UserInput {
+  province: string;
+  city: string;
+  landform: string;
+  landArea: number;
+  entranceDirection: string;
+  style: string;
+  floor: number;
+  rooms: number;
+}
+
+interface FloorplanData {
+  id: number;
+  floor: number;
+  name: string;
+  source: any; // Either a require() or a {uri: string}
+  orientation: 'horizontal' | 'vertical';
+}
+
+const HouseDetailPage = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [userInput, setUserInput] = useState<UserInput | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [is3D, setIs3D] = useState(true);
   const [showMaterials, setShowMaterials] = useState(false);
@@ -23,34 +88,46 @@ const HouseResultPage = () => {
   const [notificationType, setNotificationType] = useState<'save' | 'download'>('download');
   const fadeAnim = useState(new Animated.Value(0))[0];
   
-  // For production, this would come from your API
-  const modelUri = 'https://966f-180-254-72-168.ngrok-free.app/assets/17.glb';
-  
-  // Sample floorplan data - in a real app, this would come from your API
-  const floorplans = [
-    {
-      id: 1,
-      floor: 1,
-      name: 'Lantai 1',
-      source: require('@/assets/images/denah1.png'),
-      orientation: 'horizontal' as 'horizontal'
-    },
-    {
-      id: 2,
-      floor: 2,
-      name: 'Lantai 2',
-      source: require('@/assets/images/denah2.png'),
-      orientation: 'horizontal' as 'horizontal'
-    },
-  ];
+  // Parse params on component mount
+  React.useEffect(() => {
+    try {
+      if (params.suggestion) {
+        const parsedSuggestion = JSON.parse(params.suggestion as string);
+        setSuggestion(parsedSuggestion);
+      }
+      
+      if (params.userInput) {
+        const parsedUserInput = JSON.parse(params.userInput as string);
+        setUserInput(parsedUserInput);
+      }
+    } catch (error) {
+      console.error('Error parsing params:', error);
+      setErrorMsg('Error loading house details. Please try again.');
+    }
+  }, [params.suggestion, params.userInput]);
 
-  const goBack = () => {
+  // Generate floorplan data from the suggestion
+  const floorplans: FloorplanData[] = React.useMemo(() => {
+    if (!suggestion || !suggestion.floorplans || suggestion.floorplans.length === 0) {
+      return [];
+    }
+    
+    return suggestion.floorplans.map((floorplanUrl, index) => ({
+      id: index + 1,
+      floor: index + 1,
+      name: `Lantai ${index + 1}`,
+      source: { uri: floorplanUrl },
+      orientation: 'horizontal' as 'horizontal'
+    }));
+  }, [suggestion]);
+
+  const goBack = useCallback(() => {
     if (showMaterials) {
       setShowMaterials(false);
       return;
     }
     router.back();
-  };
+  }, [showMaterials, router]);
 
   // Animation functions for the notification
   const showNotificationAnimation = (type: 'save' | 'download') => {
@@ -82,16 +159,22 @@ const HouseResultPage = () => {
       // Here you would make your API call to save the design
       // saveDesign().then(...).catch(...);
     } else {
+      if (suggestion?.pdf) {
+        Linking.openURL(suggestion.pdf).catch(err => {
+          console.error('Failed to open PDF', err);
+          Alert.alert('Error', 'Could not open PDF. Please try again later.');
+        });
+      }
       console.log('PDF downloaded');
-      // Here you would make your API call to download PDF
-      // downloadPDF().then(...).catch(...);
     }
   };
 
   // Function to verify the model URL is accessible
-  const verifyModelUrl = async () => {
+  const verifyModelUrl = useCallback(async () => {
+    if (!suggestion?.object || errorMsg?.includes(suggestion.object)) return;
+
     try {
-      const response = await fetch(modelUri, {
+      const response = await fetch(suggestion.object, {
         method: 'HEAD',
         headers: {
           'ngrok-skip-browser-warning': '1',
@@ -100,41 +183,28 @@ const HouseResultPage = () => {
       });
       
       if (!response.ok) {
-        console.error('Model URL is not accessible:', response.status);
-        setErrorMsg(`Yah, model 3Dnya belum bisa tampil saat ini.\n Coba lagi nanti yaa! (Error code: ${response.status})`);
-      } else {
-        console.log('Model URL is accessible');
-        setErrorMsg(null);
+        setErrorMsg(`Yah, model 3Dnya belum bisa tampil... (Error: ${response.status})`);
       }
     } catch (error) {
-      console.error('Error checking model URL:', error);
-      setErrorMsg('Sepertinya koneksimu sedang bermasalah nih. Coba cek internetmu yaa!');
+      setErrorMsg('Koneksi bermasalah. Cek internetmu!');
     }
-  };
+  }, [suggestion?.object, errorMsg]);
 
   // Set up orientation control when component mounts
-  useEffect(() => {
+  React.useEffect(() => {
     const setupOrientation = async () => {
       try {
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.LANDSCAPE
-        );
-        
-        setTimeout(async () => {
-          await ScreenOrientation.unlockAsync();
-        }, 5000);
+        await ScreenOrientation.unlockAsync();
       } catch (error) {
-        console.error('Failed to manage orientation:', error);
+        console.error('Failed to unlock orientation:', error);
       }
     };
-  
+
     setupOrientation();
-    verifyModelUrl();
-  
+
     return () => {
       const lockPortrait = async () => {
         try {
-          // Lock back to portrait when leaving this screen
           await ScreenOrientation.lockAsync(
             ScreenOrientation.OrientationLock.PORTRAIT_UP
           );
@@ -142,14 +212,47 @@ const HouseResultPage = () => {
           console.error('Failed to lock orientation:', error);
         }
       };
-      
       lockPortrait();
     };
   }, []);
 
+  // Separate useEffect for model verification
+  React.useEffect(() => {
+    if (suggestion?.object) {
+      verifyModelUrl();
+    }
+  }, [suggestion?.object, verifyModelUrl]);
+
   useEffect(() => {
     setShowMaterials(false);
   }, [isLandscape]);
+
+  // Format budget range to display
+  const formatBudgetRange = (forLandscape: boolean = true) => {
+    if (!suggestion) return '';
+    
+    const formatCurrency = (amount: number) => {
+      if (amount >= 1000000000) {
+        return `${(amount / 1000000000).toFixed(3)} miliar`;
+      } else if (amount >= 1000000) {
+        return `${(amount / 1000000).toFixed(1)} juta`;
+      }
+      return amount.toString();
+    };
+    
+    // Using the default budget index (usually 1 for original)
+    const defaultIndex = 1;
+    const minBudget = suggestion.budgetMin[defaultIndex];
+    const maxBudget = suggestion.budgetMax[defaultIndex];
+    
+    const formattedMin = `Rp${formatCurrency(minBudget * suggestion.buildingArea)}`;
+    const formattedMax = `Rp${formatCurrency(maxBudget * suggestion.buildingArea)}`;
+    
+    // Different formatting for landscape and portrait
+    return forLandscape 
+      ? `${formattedMin} - ${formattedMax}`
+      : `${formattedMin} -\n${formattedMax}`;
+  };
 
   // Helper function to get notification message based on type
   const getNotificationMessage = () => {
@@ -157,6 +260,17 @@ const HouseResultPage = () => {
       ? 'Desain berhasil disimpan'
       : 'PDF berhasil diunduh';
   };
+
+  // If there's no suggestion data yet, show loading
+  if (!suggestion) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading house details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Render landscape layout
   if (isLandscape) {
@@ -176,19 +290,24 @@ const HouseResultPage = () => {
                 </View>
               ) : (
                 <HouseViewer 
-                  modelUri={modelUri}
+                  modelUri={suggestion.object}
                 />
               )}
 
-              {showMaterials && (
+              {showMaterials && suggestion && (
                 <MaterialSection
                   isLandscape={isLandscape}
                   state={(data: boolean) => setShowMaterials(data)}
+                  budgetMin={suggestion.budgetMin}
+                  budgetMax={suggestion.budgetMax}
+                  materials0={suggestion.materials0}
+                  materials1={suggestion.materials1}
+                  materials2={suggestion.materials2}
                 />
               )}
               
               <View style={styles.landscapeCopyrightContainer}>
-                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
               </View>
             </View>
           ) : (
@@ -196,7 +315,7 @@ const HouseResultPage = () => {
               <FloorplanViewer floorplans={floorplans} isLandscape={true} />
               
               <View style={styles.landscapeCopyrightContainer}>
-                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
               </View>
             </View>
           )}
@@ -206,7 +325,7 @@ const HouseResultPage = () => {
           </TouchableOpacity>
           
           <View style={styles.landscapeHeader}>
-            <Text style={[styles.title, theme.typography.title]}>Saran 1</Text>
+            <Text style={[styles.title, theme.typography.title]}>Rumah {suggestion.houseNumber}</Text>
             <View style={styles.tabs}>
               <Button 
                 title="3D Rumah" 
@@ -249,7 +368,7 @@ const HouseResultPage = () => {
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
               <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget</Text>
-              <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>Rp500 - 900 juta</Text>
+              <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>{formatBudgetRange()}</Text>
             </View>
             
             <Button 
@@ -258,6 +377,7 @@ const HouseResultPage = () => {
               icon={<MaterialIcons name="download" size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('download')}
+              disabled={!suggestion?.pdf}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
@@ -301,7 +421,7 @@ const HouseResultPage = () => {
           <TouchableOpacity onPress={goBack} style={styles.backButton}>
             <MaterialIcons name="chevron-left" size={32} color={theme.colors.customOlive[50]} />
           </TouchableOpacity>
-          <Text style={[styles.title, theme.typography.title]}>Saran 1</Text>
+          <Text style={[styles.title, theme.typography.title]}>Rumah {suggestion.houseNumber}</Text>
           <View style={styles.tabs}>
             <Button 
               title="3D Rumah" 
@@ -339,14 +459,19 @@ const HouseResultPage = () => {
               </View>
             ) : (
               <HouseViewer 
-                modelUri={modelUri}
+                modelUri={suggestion.object}
               />
             )}
 
-            {showMaterials && (
+            {showMaterials && suggestion && (
               <MaterialSectionVertical
                 isLandscape={isLandscape}
                 state={(data: boolean) => setShowMaterials(data)}
+                budgetMin={suggestion.budgetMin}
+                budgetMax={suggestion.budgetMax}
+                materials0={suggestion.materials0}
+                materials1={suggestion.materials1}
+                materials2={suggestion.materials2}
               />
             )}
 
@@ -365,7 +490,7 @@ const HouseResultPage = () => {
             </View>
             
             <View style={styles.copyrightContainer}>
-              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
             </View>
           </View>
         ) : (
@@ -373,7 +498,7 @@ const HouseResultPage = () => {
             <FloorplanViewer floorplans={floorplans} isLandscape={false} />
               
             <View style={styles.copyrightContainer}>
-              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by Naila Juniah</Text>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
             </View>
           </View>
         )}
@@ -381,7 +506,7 @@ const HouseResultPage = () => {
         <View style={styles.infoContainer}>
           <View style={styles.budgetInfo}>
             <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
-            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>Rp500 - 900 juta</Text>
+            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>{formatBudgetRange()}</Text>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -402,6 +527,7 @@ const HouseResultPage = () => {
               icon={<MaterialIcons name="download" size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('download')}
+              disabled={!suggestion?.pdf}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
@@ -568,6 +694,11 @@ const styles = StyleSheet.create({
     color: theme.colors.customWhite[50],
     ...theme.typography.body2
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
-export default HouseResultPage;
+export default HouseDetailPage;

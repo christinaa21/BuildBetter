@@ -68,6 +68,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ modelUri, isLocalFile = false
             logToApp('Trying to fetch model from: ${modelUri}');
             
             fetch('${modelUri}', {
+              mode: 'cors',
               headers: {
                 'ngrok-skip-browser-warning': '1',
                 'User-Agent': 'ReactNativeApp'
@@ -183,17 +184,15 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ modelUri, isLocalFile = false
   }
 
   const handleWebViewMessage = (event: WebViewMessageEvent) => {
-    const message = event.nativeEvent.data;
-    // console.log('WebView message:', message);
-    
+    const message = event.nativeEvent.data;    
     if (message === 'MODEL_LOADED') {
         console.log('Model loaded successfully!');
-        setIsLoading(false);
+        if (isLoading) setIsLoading(false);
         setError(null);
     } else if (message.startsWith('MODEL_ERROR')) {
         console.log('Error loading model:', message);
         setIsLoading(false);
-        setError('Error loading 3D model. Please check if the model format is supported and the URL is accessible.');
+        if (!error) setError('Error loading 3D model. Please check if the model format is supported and the URL is accessible.');
         console.error('Model loading error:', message);
     } else if (message.startsWith('LOG:')) {
         // console.log('WebView log:', message.substring(4));
@@ -235,7 +234,7 @@ const HouseViewer: React.FC<HouseViewerProps> = ({ modelUri, isLocalFile = false
         // Add this to support CORS
         androidHardwareAccelerationDisabled={false}
         cacheEnabled={true}
-        cacheMode="LOAD_DEFAULT"
+        cacheMode="LOAD_CACHE_ELSE_NETWORK"
       />
       
       {isLoading && (

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, TouchableWithoutFeedback, Pressable, LayoutChangeEvent, Platform, Easing } from "react-native";
+import { View, Text, StyleSheet, Animated, Dimensions, Pressable, LayoutChangeEvent, Platform, Easing } from "react-native";
 import { theme } from "@/app/theme";
 import { Card } from "./Card";
 import { GridContainer } from "./GridContainer";
@@ -9,19 +9,20 @@ import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler
 
 interface Material {
   id: string;
-  title: string;
-  description?: string;
-  image?: any;
-  icon?: React.ReactNode;
-  budget?: 'original' | 'ekonomis' | 'premium';
-  priceRange?: string;
+  name: string;
+  category: string;
+  subcategory: string;
+  image: string;
+}
+
+interface MaterialSubCategory {
+  subCategory: string;
+  materials: Material[];
 }
 
 interface MaterialCategory {
-  id: string | number;
-  title: string;
-  icon: React.ReactNode;
-  materials?: Material[];
+  category: string;
+  subCategories: MaterialSubCategory[];
 }
 
 interface BudgetOption {
@@ -32,19 +33,39 @@ interface BudgetOption {
   width?: number;
 }
 
-interface MaterialProps {
-  data?: Material[];
+// Props interface for the MaterialSectionVertical component
+interface MaterialSectionVerticalProps {
+  budgetMin: number[];
+  budgetMax: number[];
+  materials0?: any;
+  materials1?: any;
+  materials2?: any;
   isLandscape?: boolean;
   state: (data: boolean) => void;
 }
 
-export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], isLandscape = false, state }) => {
+// Interface for mapped category types with icons
+interface CategoryType {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+}
+
+export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = ({ 
+  budgetMin = [300000, 500000, 1200000],
+  budgetMax = [800000, 1500000, 3000000],
+  materials0 = {}, 
+  materials1 = {}, 
+  materials2 = {}, 
+  isLandscape = false, 
+  state 
+}) => {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<string>('original');
   const panelAnimation = useRef(new Animated.Value(0)).current;
   const { height, width } = Dimensions.get('window');
-  const panelHeight = height * 0.5; // Reduced to 60% of screen height (from 70%)
+  const panelHeight = height * 0.5; // 50% of screen height
   
   // Create animated values for each budget option
   const originalAnimation = useRef(new Animated.Value(1)).current;
@@ -58,81 +79,68 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
     premium: 0
   });
   
-  // Pre-calculate the budget range widths for smoother animation
-  const budgetOptions: BudgetOption[] = [
-    { 
-      id: 'original', 
-      title: 'Original', 
-      priceRange: 'Rp500K - Rp1.5M', 
-      animation: originalAnimation,
-      width: 110 // Estimated width, will be updated on measurement
-    },
-    { 
-      id: 'ekonomis', 
-      title: 'Ekonomis', 
-      priceRange: 'Rp300K - Rp800K', 
-      animation: ekonomisAnimation,
-      width: 105 // Estimated width, will be updated on measurement
-    },
-    { 
-      id: 'premium', 
-      title: 'Premium', 
-      priceRange: 'Rp1.2M - Rp3M', 
-      animation: premiumAnimation,
-      width: 95 // Estimated width, will be updated on measurement
+  // Format price to Rupiah
+  const formatPriceToRupiah = (price: number) => {
+    if (price >= 1000000) {
+      return `Rp${(price / 1000000).toFixed(3)} juta`;
+    } else if (price >= 1000) {
+      return `Rp${(price / 1000).toFixed(0)} ribu`;
     }
-  ];
-  
-  // Material categories
-  const materialTypes: MaterialCategory[] = [
-    { id: 'atap', title: 'Atap', icon: <SolarRoof size={24} color={theme.colors.customGreen[300]} /> },
-    { id: 'dinding', title: 'Dinding', icon: <Wall size={24} color={theme.colors.customGreen[300]} /> },
-    { id: 'lantai', title: 'Lantai', icon: <MaterialCommunityIcons name="floor-plan" size={24} color={theme.colors.customGreen[300]} /> },
-    { id: 'bukaan', title: 'Bukaan', icon: <MaterialIcons name="window" size={24} color={theme.colors.customGreen[300]} /> },
-    { id: 'balok-kolom', title: 'Balok- Kolom', icon: <CubeTransparent size={24} color={theme.colors.customGreen[300]} /> },
-    { id: 'pondasi', title: 'Pondasi', icon: <MaterialIcons name="foundation" size={24} color={theme.colors.customGreen[300]} /> }
-  ];
+    return `Rp${price}`;
+  };
 
-  // Sample material data with budget categories as in original code
-  const materialData = {
-    atap: {
-      original: [
-        { id: 'genting', title: 'Genting', description: 'Atap', image: require('@/assets/images/genting.png'), budget: 'original', priceRange: 'Rp500K - Rp1.5M' },
-        { id: 'baja_ringan', title: 'Baja Ringan', description: 'Struktur Atap', image: require('@/assets/images/baja-ringan.png'), budget: 'original', priceRange: 'Rp500K - Rp1.5M' },
-        { id: 'pvc', title: 'PVC', description: 'Plafon', image: require('@/assets/images/pvc.png'), budget: 'original', priceRange: 'Rp500K - Rp1.5M' }
-      ],
-      ekonomis: [
-        { id: 'seng', title: 'Seng', description: 'Atap', image: require('@/assets/images/genting.png'), budget: 'ekonomis', priceRange: 'Rp300K - Rp800K' },
-        { id: 'kayu', title: 'Kayu', description: 'Struktur Atap', image: require('@/assets/images/baja-ringan.png'), budget: 'ekonomis', priceRange: 'Rp300K - Rp800K' }
-      ],
-      premium: [
-        { id: 'genteng_keramik', title: 'Genteng Keramik', description: 'Atap', image: require('@/assets/images/genting.png'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' },
-        { id: 'baja_galvanis', title: 'Baja Galvanis', description: 'Struktur Atap', image: require('@/assets/images/baja-ringan.png'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' },
-        { id: 'gypsum', title: 'Gypsum', description: 'Plafon', image: require('@/assets/images/pvc.png'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' },
-        { id: 'aluminium', title: 'Aluminium', description: 'Aksesoris', image: require('@/assets/images/pvc.png'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' }
-      ]
-    },
-    dinding: {
-      original: [
-        { id: 'bata', title: 'Bata', description: 'Struktur Dinding', image: require('@/assets/images/bata.jpeg'), budget: 'original', priceRange: 'Rp500K - Rp1.5M' },
-        { id: 'cat', title: 'Cat', description: 'Pelapis Dinding', image: require('@/assets/images/cat.jpg'), budget: 'original', priceRange: 'Rp500K - Rp1.5M' }
-      ],
-      ekonomis: [
-        { id: 'batako', title: 'Batako', description: 'Struktur Dinding', image: require('@/assets/images/bata.jpeg'), budget: 'ekonomis', priceRange: 'Rp300K - Rp800K' }
-      ],
-      premium: [
-        { id: 'hebel', title: 'Hebel', description: 'Struktur Dinding', image: require('@/assets/images/bata.jpeg'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' },
-        { id: 'wallpaper', title: 'Wallpaper', description: 'Pelapis Dinding', image: require('@/assets/images/cat.jpg'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' },
-        { id: 'marmer', title: 'Marmer', description: 'Aksen Dinding', image: require('@/assets/images/cat.jpg'), budget: 'premium', priceRange: 'Rp1.2M - Rp3M' }
-      ]
-    },
-    // Add other categories as needed
+  // Dynamic budget options data - now using props
+  const getBudgetOptions = (): BudgetOption[] => {
+    return [
+      { 
+        id: 'original', 
+        title: 'Original', 
+        priceRange: `${formatPriceToRupiah(budgetMin[1])} - ${formatPriceToRupiah(budgetMax[1])}`, 
+        animation: originalAnimation,
+        width: 110 // Estimated width, will be updated on measurement
+      },
+      { 
+        id: 'ekonomis', 
+        title: 'Ekonomis', 
+        priceRange: `${formatPriceToRupiah(budgetMin[0])} - ${formatPriceToRupiah(budgetMax[0])}`, 
+        animation: ekonomisAnimation,
+        width: 105 // Estimated width, will be updated on measurement
+      },
+      { 
+        id: 'premium', 
+        title: 'Premium', 
+        priceRange: `${formatPriceToRupiah(budgetMin[2])} - ${formatPriceToRupiah(budgetMax[2])}`, 
+        animation: premiumAnimation,
+        width: 95 // Estimated width, will be updated on measurement
+      }
+    ];
+  };
+  
+  // Map for category icons
+  const categoryIcons: { [key: string]: React.ReactNode } = {
+    'atap': <SolarRoof size={24} color={theme.colors.customGreen[300]} />,
+    'dinding': <Wall size={24} color={theme.colors.customGreen[300]} />,
+    'lantai': <MaterialCommunityIcons name="floor-plan" size={24} color={theme.colors.customGreen[300]} />,
+    'bukaan': <MaterialIcons name="window" size={24} color={theme.colors.customGreen[300]} />,
+    'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />,
+    'pondasi': <MaterialIcons name="foundation" size={24} color={theme.colors.customGreen[300]} />
   };
 
   // Initial animation setup
   useEffect(() => {
     // Initialize animations based on the default selected budget
     animateBudgetSelection('original', false);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      Animated.timing(panelAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.ease),
+      }).start();
+    }
   }, []);
 
   const closePanel = () => {
@@ -148,17 +156,6 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
     });
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      Animated.timing(panelAnimation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.ease),
-      }).start();
-    }
-  }, []);
-
   // Function to handle category selection
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -167,7 +164,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
   // Function to animate budget selection changes with improved animation config
   const animateBudgetSelection = (budgetId: string, animate = true) => {
     // Create animation sequence for each budget option
-    const animations = budgetOptions.map(budget => {
+    const animations = getBudgetOptions().map(budget => {
       const toValue = budget.id === budgetId ? 1 : 0;
       return Animated.timing(budget.animation!, {
         toValue,
@@ -196,14 +193,81 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
     }));
   };
 
+  const transformMaterialsToArray = (materialsObj: any): MaterialCategory[] => {
+    if (!materialsObj) return [];
+
+    return Object.keys(materialsObj).map(categoryName => ({
+      category: categoryName,
+      subCategories: Object.keys(materialsObj[categoryName]).map(subCategoryName => ({
+        subCategory: subCategoryName,
+        materials: materialsObj[categoryName][subCategoryName].map((material: any) => ({
+          id: material.id,
+          name: material.name,
+          category: categoryName,
+          subcategory: subCategoryName,
+          image: material.image
+        }))
+      }))
+    }));
+  };
+
+  // Get all available categories from the materials data
+  const getAllCategories = (): CategoryType[] => {
+    const categoriesSet = new Set<string>();
+    
+    // Collect all unique categories from all budget levels
+    const materialArrays = [
+      transformMaterialsToArray(materials0),
+      transformMaterialsToArray(materials1),
+      transformMaterialsToArray(materials2)
+    ];
+    
+    materialArrays.forEach(materialsByBudget => {
+      materialsByBudget.forEach(category => {
+        categoriesSet.add(category.category.toLowerCase());
+      });
+    });
+    
+    // Convert to array and map to the expected format with icons
+    return Array.from(categoriesSet).map(category => ({
+      id: category,
+      title: category.charAt(0).toUpperCase() + category.slice(1), // Capitalize first letter
+      icon: categoryIcons[category] || <MaterialIcons name="category" size={24} color={theme.colors.customGreen[300]} />
+    }));
+  };
+
+  // Map budget string IDs to materials array index
+  const getBudgetMaterialsIndex = (budgetId: string): number => {
+    switch(budgetId) {
+      case 'ekonomis': return 0;
+      case 'original': return 1;
+      case 'premium': return 2;
+      default: return 1; // Default to original
+    }
+  };
+
   // Get materials for the selected category and budget
   const getMaterialsForCategory = () => {
     if (!selectedCategory) return [];
     
-    const categoryData = materialData[selectedCategory as keyof typeof materialData];
+    const budgetIndex = getBudgetMaterialsIndex(selectedBudget);
+    const materialsByBudget = budgetIndex === 0 ? 
+      transformMaterialsToArray(materials0) : 
+      budgetIndex === 1 ? 
+      transformMaterialsToArray(materials1) : 
+      transformMaterialsToArray(materials2);
+    
+    // Find the category in the materials for the selected budget
+    const categoryData = materialsByBudget.find(cat => cat.category.toLowerCase() === selectedCategory.toLowerCase());
     if (!categoryData) return [];
     
-    return categoryData[selectedBudget as keyof typeof categoryData] || [];
+    // Flatten all materials from all subcategories
+    let allMaterials: Material[] = [];
+    categoryData.subCategories.forEach(subCat => {
+      allMaterials = [...allMaterials, ...subCat.materials];
+    });
+    
+    return allMaterials;
   };
 
   // Check if there is any material data for the selected category and budget
@@ -214,14 +278,15 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
 
   // Get the current budget price range
   const getCurrentBudgetPriceRange = () => {
+    const budgetOptions = getBudgetOptions();
     const currentBudget = budgetOptions.find(budget => budget.id === selectedBudget);
     return currentBudget?.priceRange || '';
   };
 
-  // Calculate the number of columns based on the device width
+  // Calculate the number of columns based on the device width and orientation
   const getNumColumns = () => {
     const materialsCount = getMaterialsForCategory().length;
-    // For vertical mode, we'll use 2 columns at most
+    // For vertical mode, we'll use at most 2 columns
     return Math.min(materialsCount === 0 ? 1 : materialsCount, 2);
   };
 
@@ -234,6 +299,8 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
 
   // Render budget buttons in a column for vertical mode
   const renderBudgetButtons = () => {
+    const budgetOptions = getBudgetOptions();
+    
     return (
       <View>
         <View style={styles.budgetFiltersVertical}>
@@ -283,7 +350,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
     <GestureHandlerRootView style={styles.container}>
       {/* Hidden text measurement container */}
       <View style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
-        {budgetOptions.map(budget => (
+        {getBudgetOptions().map(budget => (
           <Text
             key={`measure-${budget.id}`}
             style={styles.budgetRangeText}
@@ -316,7 +383,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
 
             <Text style={styles.panelTitle}>
               {selectedCategory 
-                ? (materialTypes.find(type => type.id === selectedCategory)?.title || 'Materials')
+                ? (getAllCategories().find(cat => cat.id === selectedCategory)?.title || 'Materials')
                 : "Material"
               }
             </Text>
@@ -334,11 +401,12 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
         <ScrollView 
           style={styles.panelContent}
           removeClippedSubviews={Platform.OS === 'android'}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={selectedCategory && !hasMaterialData() ? {flex: 1} : {}}
         >
           {!selectedCategory ? (
             <GridContainer
-              data={materialTypes}
+              data={getAllCategories()}
               numColumns={3} // 3 columns for categories in vertical mode
               columnSpacing={8}
               rowSpacing={8}
@@ -346,7 +414,7 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
                 <Card
                   icon={item.icon}
                   title={item.title}
-                  onButtonPress={() => handleCategorySelect(item.id.toString())}
+                  onButtonPress={() => handleCategorySelect(item.id)}
                   showButton={false}
                   style={styles.categoryCardVertical}
                 />
@@ -363,9 +431,9 @@ export const MaterialSectionVertical: React.FC<MaterialProps> = ({ data = [], is
                 rowSpacing={16}
                 renderItem={(item) => (
                   <Card
-                    image={item.image}
-                    title={item.title}
-                    description={item.description}
+                    image={item.image ? { uri: item.image } : undefined}
+                    title={item.name}
+                    description={item.subcategory}
                     showButton={false}
                     imageStyle={styles.materialImage}
                     style={styles.materialCardVertical}
@@ -400,6 +468,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 10,
     zIndex: 1001,
     overflow: 'hidden',
   },
@@ -505,6 +578,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 50,
     alignSelf: 'center',
+    resizeMode: 'contain'
   },
   // Material cards for vertical layout
   materialCardVertical: {

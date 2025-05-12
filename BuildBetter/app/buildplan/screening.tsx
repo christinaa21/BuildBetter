@@ -114,7 +114,7 @@ const Screening = () => {
     try {
       setIsLoading(true);
       const response = await authApi.generateSuggestions(apiData);
-      
+
       if (response.code === 200) {
         router.push({
           pathname: './result',

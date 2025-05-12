@@ -35,7 +35,7 @@ interface FloorplanViewerProps {
   isLandscape?: boolean;
 }
 
-const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLandscape = true }) => {
+const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLandscape = false }) => {
   const sortedFloorplans = [...floorplans].sort((a, b) => b.floor - a.floor);
   const [currentFloorIndex, setCurrentFloorIndex] = useState(sortedFloorplans.length - 1);
   const scale = useRef(new Animated.Value(1)).current;
@@ -129,7 +129,7 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
                     styles.floorplanImage,
                     currentFloorplan.orientation === 'horizontal' 
                       ? { width: width * 0.9, height: height * 0.7 } 
-                      : { width: width * 0.7, height: height * 0.9 }
+                      : { width: width * 0.9, height: height * 1.4 }
                   ]}
                   resizeMode="contain"
                 />
@@ -140,7 +140,16 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
       </PanGestureHandler>
       
       {floorplans.length > 1 && (
-        <View style={[styles.floorIndicator, {right: isLandscape ? '70%' : '6%'}, {bottom: isLandscape ? '58%' : '1%'}]}>
+        <View style={[
+          styles.floorIndicator, 
+          { right: isLandscape ? '70%' : '6%' }, 
+          { bottom: isLandscape 
+            ? '58%' 
+            : currentFloorplan.orientation === 'vertical' 
+              ? '10%' 
+              : '1%' 
+          }
+        ]}>
           <FilterDropdown 
             options={floorFilterOptions}
             selectedValues={[currentFloorIndex]}
