@@ -14,11 +14,20 @@ interface House {
   bedrooms: number;
 }
 
-const HouseCard: React.FC<{ house: House }> = ({ house }) => {
+interface HouseCardProps {
+  house: House;
+  onPress?: () => void;
+}
+
+const HouseCard: React.FC<HouseCardProps> = ({ house, onPress }) => {
   const router = useRouter();
   
   const goToHouseDetail = () => {
-    router.push(`/buildplan/detail/${house.id}`);
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(`/buildplan/detail/${house.id}`);
+    }
   };
 
   return (
@@ -112,7 +121,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     marginVertical: 4,
     elevation: 1,
-
   },
   specText: {
     marginLeft: 4,

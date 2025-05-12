@@ -57,7 +57,7 @@ const ForgotPassword = () => {
   };
 
   const handleBackToLogin = () => {
-    router.replace('/update-password');
+    router.replace('/login');
   };
 
   return (

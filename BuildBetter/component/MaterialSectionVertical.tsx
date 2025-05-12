@@ -122,8 +122,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
     'dinding': <Wall size={24} color={theme.colors.customGreen[300]} />,
     'lantai': <MaterialCommunityIcons name="floor-plan" size={24} color={theme.colors.customGreen[300]} />,
     'bukaan': <MaterialIcons name="window" size={24} color={theme.colors.customGreen[300]} />,
-    'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />,
-    'pondasi': <MaterialIcons name="foundation" size={24} color={theme.colors.customGreen[300]} />
+    'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />
   };
 
   // Initial animation setup

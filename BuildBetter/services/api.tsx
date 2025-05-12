@@ -39,6 +39,112 @@ export interface RegisterData {
   password: string;
 }
 
+// Plan-related interfaces
+export interface Material {
+  id: string;
+  name: string;
+  category: string;
+  subCategory: string;
+  image: string;
+}
+
+export interface MaterialsByCategory {
+  [category: string]: {
+    [subCategory: string]: Material;
+  };
+}
+
+export interface Suggestion {
+  id: string;
+  houseNumber: number | string;
+  landArea: number;
+  buildingArea: number;
+  style: string;
+  floor: number;
+  rooms: number;
+  buildingHeight: number;
+  designer: string;
+  defaultBudget: number;
+  budgetMin: number[]; // budgetMin[0] for ekonomis, budgetMin[1] for original, and budgetMin[2] for premium
+  budgetMax: number[]; // same like budgetMin but this one for the max
+  floorplans: Array<string> | null; // array of floorplans url
+  object: string | null; // 3D house design, in url
+  houseImageFront: string | null; // image url
+  houseImageSide: string | null; // image url
+  houseImageBack: string | null; // image url
+  pdf?: string; // pdf url
+  materials0: MaterialsByCategory; // ekonomis
+  materials1: MaterialsByCategory; // original
+  materials2: MaterialsByCategory; // premium
+}
+
+export interface UserInput {
+  province: string;
+  city: string;
+  landform: string;
+  landArea: number;
+  entranceDirection: string;
+  style: string;
+  floor: number;
+  rooms: number;
+}
+
+export interface SavePlanData {
+  style: string;
+  landArea: number;
+  floor: number;
+  entranceDirection: string;
+  province: string;
+  city: string;
+  landform: string;
+  rooms: number;
+  suggestionId: string;
+}
+
+export interface SavePlanResponse {
+  code: number;
+  status: string;
+  message?: string;
+  error?: string | string[];
+}
+
+export interface Plan {
+  id: string;
+  userId: string;
+  suggestionId: string;
+  style: string;
+  landArea: number;
+  floor: number;
+  entranceDirection: string;
+  province: string;
+  city: string;
+  landform: string;
+  rooms: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanWithSuggestion {
+  userInput: UserInput;
+  suggestions: Suggestion;
+}
+
+export interface GetPlansResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: PlanWithSuggestion[];
+  error?: string;
+}
+
+export interface GetPlanByIdResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: PlanWithSuggestion;
+  error?: string;
+}
+
 // User profile response type
 export interface UserProfileResponse {
   code: number;
@@ -199,6 +305,77 @@ export const authApi = {
       throw error;
     }
   },
+};
+
+// Plans API
+export const plansApi = {
+  // Save a new plan
+  savePlan: async (data: SavePlanData): Promise<SavePlanResponse> => {
+    try {
+      const response = await apiClient.post<SavePlanResponse>('/plans', data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as SavePlanResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: ['Network or server error. Please check your connection and try again.']
+      };
+    }
+  },
+
+  // Get all plans for the current user
+  getPlans: async (): Promise<GetPlansResponse> => {
+    try {
+      const response = await apiClient.get<GetPlansResponse>('/plans');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetPlansResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+
+  // Get a specific plan by its ID
+  getPlanById: async (planId: string): Promise<GetPlanByIdResponse> => {
+    try {
+      const response = await apiClient.get<GetPlanByIdResponse>(`/plans/${planId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetPlanByIdResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
+  // Delete a plan by its ID
+  deletePlan: async (planId: string): Promise<{code: number; status: string; message?: string; error?: string}> => {
+    try {
+      const response = await apiClient.delete(`/plans/${planId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  }
 };
 
 export default apiClient;

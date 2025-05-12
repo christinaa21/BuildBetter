@@ -122,8 +122,7 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
     'dinding': <Wall size={24} color={theme.colors.customGreen[300]} />,
     'lantai': <MaterialCommunityIcons name="floor-plan" size={24} color={theme.colors.customGreen[300]} />,
     'bukaan': <MaterialIcons name="window" size={24} color={theme.colors.customGreen[300]} />,
-    'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />,
-    'pondasi': <MaterialIcons name="foundation" size={24} color={theme.colors.customGreen[300]} />
+    'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />
   };
 
   // Initial animation setup
@@ -439,7 +438,7 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
           {!selectedCategory ? (
             <GridContainer
               data={getAllCategories()}
-              numColumns={6}
+              numColumns={5}
               columnSpacing={8}
               rowSpacing={8}
               renderItem={(item) => (
@@ -608,12 +607,11 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     padding: 12,
-    backgroundColor: '#CAE1DB',
-    aspectRatio: 1,
+    backgroundColor: '#CAE1DB'
   },
   materialImage: {
     width: 80,
-    height: 50,
+    height: 60,
     alignSelf: 'center',
     resizeMode: 'contain'
   },

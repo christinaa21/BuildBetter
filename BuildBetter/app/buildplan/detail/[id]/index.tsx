@@ -9,6 +9,9 @@ import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
 import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { plansApi } from '@/services/api';
 
 // Type definitions
 interface Material {
@@ -88,9 +91,22 @@ const HouseDetailPage = () => {
   const [notificationType, setNotificationType] = useState<'save' | 'download'>('download');
   const fadeAnim = useState(new Animated.Value(0))[0];
   
+  // Add loading state for save operation
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  
   // Parse params on component mount
   React.useEffect(() => {
     try {
+      // Handle Saved page navigation (planDetails param)
+      if (params.planDetails) {
+        const parsedPlan = JSON.parse(params.planDetails as string);
+        setSuggestion(parsedPlan.suggestions);
+        setUserInput(parsedPlan.userInput);
+        return;
+      }
+
+      // Handle Result page navigation (suggestion and userInput params)
       if (params.suggestion) {
         const parsedSuggestion = JSON.parse(params.suggestion as string);
         setSuggestion(parsedSuggestion);
@@ -104,7 +120,7 @@ const HouseDetailPage = () => {
       console.error('Error parsing params:', error);
       setErrorMsg('Error loading house details. Please try again.');
     }
-  }, [params.suggestion, params.userInput]);
+  }, [params.suggestion, params.userInput, params.planDetails]);
 
   // Generate floorplan data from the suggestion
   const floorplans: FloorplanData[] = React.useMemo(() => {
@@ -150,22 +166,112 @@ const HouseDetailPage = () => {
     });
   };
 
-  const handleAction = (action: 'save' | 'download') => {
-    // Show success notification
-    showNotificationAnimation(action);
+  // Function to save design to API
+  const saveDesign = async (): Promise<boolean> => {
+    if (!suggestion || !userInput) {
+      Alert.alert('Error', 'Missing required data to save design');
+      return false;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Prepare the request body according to the API requirements
+      const saveData = {
+        style: userInput.style,
+        landArea: userInput.landArea,
+        floor: userInput.floor,
+        entranceDirection: userInput.entranceDirection,
+        province: userInput.province,
+        city: userInput.city,
+        landform: userInput.landform,
+        rooms: userInput.rooms,
+        suggestionId: suggestion.id
+      };
+
+      // Use the new plansApi method
+      const response = await plansApi.savePlan(saveData);
+      
+      setIsSaving(false);
+      
+      // Check if the save was successful
+      if (response.code === 200) {
+        console.log('Design saved successfully:', response.message);
+        return true;
+      } else {
+        console.error('Failed to save design:', response.error);
+        Alert.alert('Error', 'Failed to save design. Please try again.');
+        return false;
+      }
+    } catch (error) {
+      setIsSaving(false);
+      console.error('Error saving design:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again later.');
+      return false;
+    }
+  };
+
+  // Download PDF function with proper error handling and success check
+  const downloadPDF = async (): Promise<boolean> => {
+    if (!suggestion?.pdf) {
+      Alert.alert('Error', 'PDF not available for this design');
+      return false;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      // Create a filename with the house number
+      const fileName = `House_${suggestion.houseNumber}.pdf`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+      // Download the PDF
+      const downloadResult = await FileSystem.downloadAsync(
+        suggestion.pdf,
+        fileUri
+      );
+
+      setIsDownloading(false);
+
+      // Check if download was successful
+      if (downloadResult?.uri && downloadResult.status === 200) {
+        // Check if sharing is available
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri, { 
+            mimeType: 'application/pdf',
+            dialogTitle: `Download Rumah ${suggestion.houseNumber}` 
+          });
+        } else {
+          Alert.alert('Download', 'PDF downloaded successfully');
+        }
+        return true;
+      } else {
+        console.error('Download failed with status:', downloadResult?.status);
+        Alert.alert('Error', 'Could not download PDF. Please try again later.');
+        return false;
+      }
+    } catch (error) {
+      setIsDownloading(false);
+      console.error('PDF Download Error:', error);
+      Alert.alert('Error', 'Could not download PDF. Please try again later.');
+      return false;
+    }
+  };
+
+  const handleAction = async (action: 'save' | 'download') => {
+    let success = false;
     
     if (action === 'save') {
-      console.log('Design saved');
-      // Here you would make your API call to save the design
-      // saveDesign().then(...).catch(...);
+      if (isSaving) return; // Prevent multiple clicks
+      success = await saveDesign();
     } else {
-      if (suggestion?.pdf) {
-        Linking.openURL(suggestion.pdf).catch(err => {
-          console.error('Failed to open PDF', err);
-          Alert.alert('Error', 'Could not open PDF. Please try again later.');
-        });
-      }
-      console.log('PDF downloaded');
+      if (isDownloading) return; // Prevent multiple clicks
+      success = await downloadPDF();
+    }
+    
+    // Only show notification if operation was successful
+    if (success) {
+      showNotificationAnimation(action);
     }
   };
 
@@ -372,23 +478,24 @@ const HouseDetailPage = () => {
             </View>
             
             <Button 
-              title="Unduh PDF" 
+              title={isDownloading ? "Mengunduh..." : "Unduh PDF"}
               variant="primary"
-              icon={<MaterialIcons name="download" size={16}/>}
+              icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('download')}
-              disabled={!suggestion?.pdf}
+              disabled={!suggestion?.pdf || isDownloading}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
               paddingVertical={6}
             />
             <Button 
-              title="Simpan" 
+              title={isSaving ? "Menyimpan..." : "Simpan"}
               variant="outline"
-              icon={<MaterialIcons name="bookmark" size={16}/>}
+              icon={<MaterialIcons name={isSaving ? "hourglass-empty" : "bookmark"} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('save')}
+              disabled={isSaving}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
@@ -511,23 +618,24 @@ const HouseDetailPage = () => {
 
           <View style={styles.buttonContainer}>
             <Button 
-              title="Simpan" 
+              title={isSaving ? "Menyimpan..." : "Simpan"}
               variant="outline"
-              icon={<MaterialIcons name="bookmark" size={16}/>}
+              icon={<MaterialIcons name={isSaving ? "hourglass-empty" : "bookmark"} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('save')}
+              disabled={isSaving}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
               paddingVertical={6}
             />
             <Button 
-              title="Unduh PDF" 
+              title={isDownloading ? "Mengunduh..." : "Unduh PDF"}
               variant="primary"
-              icon={<MaterialIcons name="download" size={16}/>}
+              icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('download')}
-              disabled={!suggestion?.pdf}
+              disabled={!suggestion?.pdf || isDownloading}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
