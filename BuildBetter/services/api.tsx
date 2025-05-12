@@ -163,6 +163,20 @@ export interface UserProfileResponse {
   error?: string;
 }
 
+export interface ForgotPasswordResponse {
+  code: number;
+  status: string;
+  message?: string;
+  error?: string | string[];
+}
+
+export interface ResetPasswordResponse {
+  code: number;
+  status: string;
+  message?: string;
+  error?: string | string[];
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -293,6 +307,44 @@ export const authApi = {
     }
   },
 
+  // Forgot Password function
+  forgotPassword: async (email: string): Promise<ForgotPasswordResponse> => {
+    try {
+      const response = await apiClient.post<ForgotPasswordResponse>('/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as ForgotPasswordResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+
+  // Reset Password function
+  resetPassword: async (email: string, token: string, newPassword: string): Promise<ResetPasswordResponse> => {
+    try {
+      const response = await apiClient.post<ResetPasswordResponse>('/reset-password', { 
+        email, 
+        token, 
+        newPassword 
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as ResetPasswordResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
   // Generate Suggestions
   generateSuggestions: async (data: any): Promise<any> => {
     try {

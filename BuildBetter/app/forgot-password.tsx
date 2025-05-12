@@ -15,6 +15,7 @@ import Button from '@/component/Button';
 import { useRouter } from 'expo-router';
 import { theme } from './theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { authApi } from '@/services/api';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -42,11 +43,20 @@ const ForgotPassword = () => {
 
     setIsLoading(true);
     try {
-      // Simulate API call for sending reset link
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call the API for sending reset link
+      const response = await authApi.forgotPassword(email);
       
-      setEmailSent(true);
+      if (response.code === 200) {
+        setEmailSent(true);
+      } else {
+        // Show error message from API or default error
+        Alert.alert(
+          'Error',
+          response.error?.toString() || 'Gagal mengirim link reset kata sandi. Silakan coba lagi.'
+        );
+      }
     } catch (error) {
+      console.error('Forgot password error:', error);
       Alert.alert(
         'Error',
         'Gagal mengirim link reset kata sandi. Silakan coba lagi.'

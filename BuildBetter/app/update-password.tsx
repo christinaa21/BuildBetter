@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,16 +12,31 @@ import {
 } from 'react-native';
 import Textfield from '@/component/Textfield';
 import Button from '@/component/Button';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from './theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { authApi } from '@/services/api';
 
-const ForgotPassword = () => {
+const UpdatePassword = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const router = useRouter();
+  
+  // Get token and email from URL params
+  const { token, email } = useLocalSearchParams<{ token: string; email: string }>();
+
+  // Check if token and email are present when component mounts
+  useEffect(() => {
+    if (!token || !email) {
+      Alert.alert(
+        'Error',
+        'Invalid password reset link. Please request a new password reset link.',
+        [{ text: 'OK', onPress: () => router.replace('/forgot-password') }]
+      );
+    }
+  }, [token, email, router]);
 
   const validatePassword = (password: string) => {
     if (!password)
@@ -57,14 +72,33 @@ const ForgotPassword = () => {
       return;
     }
 
+    // Validate token and email again before API call
+    if (!token || !email) {
+      Alert.alert(
+        'Error',
+        'Invalid password reset link. Please request a new password reset link.',
+        [{ text: 'OK', onPress: () => router.replace('/forgot-password') }]
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Simulate API call for sending reset link
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Change password successful', password);
-      setPasswordChanged(true);
+      // Call the API to reset password
+      const response = await authApi.resetPassword(email, token, password);
+      
+      if (response.code === 200) {
+        setPasswordChanged(true);
+      } else {
+        // Format and show error messages from API
+        const errorMessage = Array.isArray(response.error) 
+          ? response.error.join('\n') 
+          : response.error || 'Gagal mereset kata sandi. Silakan coba lagi.';
+          
+        Alert.alert('Error', errorMessage);
+      }
     } catch (error) {
-      console.error('Change password failed', error);
+      console.error('Reset password error:', error);
       Alert.alert(
         'Error',
         'Gagal mereset kata sandi. Silakan coba lagi.'
@@ -205,4 +239,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ForgotPassword;
+export default UpdatePassword;
