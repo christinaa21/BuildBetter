@@ -88,12 +88,16 @@ const HouseDetailPage = () => {
   
   // Add states for notification
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationType, setNotificationType] = useState<'save' | 'download'>('download');
+  const [notificationType, setNotificationType] = useState<'save' | 'download' | 'already_saved'>('download');
   const fadeAnim = useState(new Animated.Value(0))[0];
   
   // Add loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Add state to track if design is already saved
+  const [isAlreadySaved, setIsAlreadySaved] = useState(false);
+  const [isCheckingSaved, setIsCheckingSaved] = useState(true);
   
   // Parse params on component mount
   React.useEffect(() => {
@@ -103,6 +107,9 @@ const HouseDetailPage = () => {
         const parsedPlan = JSON.parse(params.planDetails as string);
         setSuggestion(parsedPlan.suggestions);
         setUserInput(parsedPlan.userInput);
+        // Design is already saved if coming from saved plans
+        setIsAlreadySaved(true);
+        setIsCheckingSaved(false);
         return;
       }
 
@@ -121,6 +128,39 @@ const HouseDetailPage = () => {
       setErrorMsg('Error loading house details. Please try again.');
     }
   }, [params.suggestion, params.userInput, params.planDetails]);
+
+  // Check if this suggestion is already saved
+  useEffect(() => {
+    // Only check if we have a suggestion and are not already known to be saved
+    if (suggestion && !isAlreadySaved && !params.planDetails) {
+      checkIfDesignIsSaved();
+    }
+  }, [suggestion]);
+
+  // Function to check if current design is already saved
+  const checkIfDesignIsSaved = async () => {
+    if (!suggestion) return;
+    
+    setIsCheckingSaved(true);
+    
+    try {
+      // Fetch user's saved plans
+      const response = await plansApi.getPlans();
+      
+      if (response.code === 200 && response.data) {
+        // Check if current suggestion exists in saved plans
+        const isSaved = response.data.some(plan => 
+          plan.suggestions.id === suggestion.id
+        );
+        
+        setIsAlreadySaved(isSaved);
+      }
+    } catch (error) {
+      console.error('Error checking saved plans:', error);
+    } finally {
+      setIsCheckingSaved(false);
+    }
+  };
 
   // Generate floorplan data from the suggestion
   const floorplans: FloorplanData[] = React.useMemo(() => {
@@ -146,7 +186,7 @@ const HouseDetailPage = () => {
   }, [showMaterials, router]);
 
   // Animation functions for the notification
-  const showNotificationAnimation = (type: 'save' | 'download') => {
+  const showNotificationAnimation = (type: 'save' | 'download' | 'already_saved') => {
     setNotificationType(type);
     setShowNotification(true);
     Animated.sequence([
@@ -168,6 +208,12 @@ const HouseDetailPage = () => {
 
   // Function to save design to API
   const saveDesign = async (): Promise<boolean> => {
+    // Don't save if already saved
+    if (isAlreadySaved) {
+      showNotificationAnimation('already_saved');
+      return false;
+    }
+    
     if (!suggestion || !userInput) {
       Alert.alert('Error', 'Missing required data to save design');
       return false;
@@ -197,6 +243,7 @@ const HouseDetailPage = () => {
       // Check if the save was successful
       if (response.code === 200) {
         console.log('Design saved successfully:', response.message);
+        setIsAlreadySaved(true);
         return true;
       } else {
         console.error('Failed to save design:', response.error);
@@ -262,6 +309,12 @@ const HouseDetailPage = () => {
     let success = false;
     
     if (action === 'save') {
+      if (isAlreadySaved) {
+        // If already saved, just show notification
+        showNotificationAnimation('already_saved');
+        return;
+      }
+      
       if (isSaving) return; // Prevent multiple clicks
       success = await saveDesign();
     } else {
@@ -362,9 +415,32 @@ const HouseDetailPage = () => {
 
   // Helper function to get notification message based on type
   const getNotificationMessage = () => {
-    return notificationType === 'save' 
-      ? 'Desain berhasil disimpan'
-      : 'PDF berhasil diunduh';
+    switch (notificationType) {
+      case 'save':
+        return 'Desain rumah berhasil disimpan';
+      case 'download':
+        return 'PDF berhasil diunduh';
+      case 'already_saved':
+        return 'Desain rumah sudah pernah disimpan';
+      default:
+        return '';
+    }
+  };
+
+  // Get save button text based on saved status
+  const getSaveButtonText = () => {
+    if (isCheckingSaved) return "Memeriksa...";
+    if (isAlreadySaved) return "Tersimpan";
+    if (isSaving) return "Menyimpan...";
+    return "Simpan";
+  };
+
+  // Get save button icon based on saved status
+  const getSaveButtonIcon = () => {
+    if (isCheckingSaved) return "hourglass-empty";
+    if (isAlreadySaved) return "bookmark";
+    if (isSaving) return "hourglass-empty";
+    return "bookmark-outline";
   };
 
   // If there's no suggestion data yet, show loading
@@ -490,12 +566,12 @@ const HouseDetailPage = () => {
               paddingVertical={6}
             />
             <Button 
-              title={isSaving ? "Menyimpan..." : "Simpan"}
-              variant="outline"
-              icon={<MaterialIcons name={isSaving ? "hourglass-empty" : "bookmark"} size={16}/>}
+              title={getSaveButtonText()}
+              variant={isAlreadySaved ? "outline" : "primary"}
+              icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('save')}
-              disabled={isSaving}
+              disabled={isSaving || isCheckingSaved}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
@@ -510,7 +586,11 @@ const HouseDetailPage = () => {
               { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
             ]}>
               <View style={styles.notificationContent}>
-                <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
+                <MaterialIcons 
+                  name={notificationType === 'already_saved' ? "info" : "check-circle"} 
+                  size={24} 
+                  color={theme.colors.customWhite[50]} 
+                />
                 <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
               </View>
             </Animated.View>
@@ -618,12 +698,12 @@ const HouseDetailPage = () => {
 
           <View style={styles.buttonContainer}>
             <Button 
-              title={isSaving ? "Menyimpan..." : "Simpan"}
-              variant="outline"
-              icon={<MaterialIcons name={isSaving ? "hourglass-empty" : "bookmark"} size={16}/>}
+              title={getSaveButtonText()}
+              variant={isAlreadySaved ? "outline" : "primary"}
+              icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>}
               iconPosition='left'
               onPress={() => handleAction('save')}
-              disabled={isSaving}
+              disabled={isSaving || isCheckingSaved}
               minHeight={10}
               minWidth={50}
               paddingHorizontal={16}
@@ -651,7 +731,11 @@ const HouseDetailPage = () => {
             { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
           ]}>
             <View style={styles.notificationContent}>
-              <MaterialIcons name="check-circle" size={24} color={theme.colors.customWhite[50]} />
+              <MaterialIcons 
+                name={notificationType === 'already_saved' ? "info" : "check-circle"} 
+                size={24} 
+                color={theme.colors.customWhite[50]} 
+              />
               <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
             </View>
           </Animated.View>

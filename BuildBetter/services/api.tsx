@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = 'http://54.153.132.144:8080/api/v1';
+const API_URL = 'https://build-better.site/api/v1';
 
 // Types for API responses
 export interface LoginResponse {
