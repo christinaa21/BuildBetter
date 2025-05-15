@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.christinaa21.BuildBetter"
+      "package": "com.christinaa21.BuildBetter",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
