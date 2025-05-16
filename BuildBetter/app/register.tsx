@@ -248,22 +248,8 @@ const Register = () => {
         // Store the email for the OTP verification
         await SecureStore.setItemAsync('userEmail', formData.email);
         
-        // Send OTP to the registered email
-        const otpResponse = await authApi.sendOtp(formData.email);
-        
-        if (otpResponse.code === 200) {
-          Alert.alert(
-            'Registration Successful',
-            'Verification code has been sent to your email.',
-            [{ text: 'OK', onPress: () => router.push('/otp') }]
-          );
-        } else {
-          Alert.alert(
-            'OTP Sending Failed',
-            otpResponse.error || 'Failed to send verification code. Please try again.',
-            [{ text: 'OK' }]
-          );
-        }
+        // Directly navigate to OTP page without showing alert
+        router.replace('/otp');
       } else {
         // Handle API error responses
         console.error('Register failed', response.error);
