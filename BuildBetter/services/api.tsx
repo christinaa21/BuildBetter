@@ -156,7 +156,7 @@ export interface UserProfileResponse {
     username: string;
     province: string;
     city: string;
-    photos: null | string[];
+    photos: null | string;
     role: string;
     createdAt: string;
   };

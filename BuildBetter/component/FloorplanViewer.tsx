@@ -7,7 +7,8 @@ import {
   ScrollView, 
   Dimensions,
   Animated,
-  ImageSourcePropType
+  ImageSourcePropType,
+  ActivityIndicator
 } from 'react-native';
 import { 
   PinchGestureHandler, 
@@ -38,6 +39,7 @@ interface FloorplanViewerProps {
 const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLandscape = false }) => {
   const sortedFloorplans = [...floorplans].sort((a, b) => b.floor - a.floor);
   const [currentFloorIndex, setCurrentFloorIndex] = useState(sortedFloorplans.length - 1);
+  const [imagesLoaded, setImagesLoaded] = useState<{ [key: number]: boolean }>({});
   const scale = useRef(new Animated.Value(1)).current;
   const { width, height } = Dimensions.get('window');
   
@@ -97,6 +99,17 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
     }
   };
 
+  // Handle image load
+  const handleImageLoad = (floorplanId: number) => {
+    setImagesLoaded(prev => ({
+      ...prev,
+      [floorplanId]: true
+    }));
+  };
+
+  // Check if current image is loaded
+  const isCurrentImageLoaded = imagesLoaded[currentFloorplan?.id];
+
   if (floorplans.length === 0) {
     return (
       <GestureHandlerRootView style={styles.container}>
@@ -117,6 +130,12 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
             onHandlerStateChange={onPinchStateChange}
           >
             <Animated.View style={[styles.imageContainer, { transform: [{ scale }] }]}>
+              {!isCurrentImageLoaded && (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.colors.customGreen[500]} />
+                  <Text style={styles.loadingText}>Loading denah rumah...</Text>
+                </View>
+              )}
               <ScrollView 
                 contentContainerStyle={styles.scrollContainer}
                 maximumZoomScale={3}
@@ -132,6 +151,7 @@ const FloorplanViewer: React.FC<FloorplanViewerProps> = ({ floorplans = [], isLa
                       : { width: width * 0.9, height: height * 1.4 }
                   ]}
                   resizeMode="contain"
+                  onLoad={() => handleImageLoad(currentFloorplan.id)}
                 />
               </ScrollView>
             </Animated.View>
@@ -193,6 +213,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 1000,
     paddingVertical: 8,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 100,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: theme.colors.customGreen[200],
   },
 });
 

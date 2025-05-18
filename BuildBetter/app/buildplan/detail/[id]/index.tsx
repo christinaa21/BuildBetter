@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity, Animated, Linking } from 'react-native';
+import { View, StyleSheet, Text, SafeAreaView, Alert, useWindowDimensions, TouchableOpacity, Animated, Linking, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import HouseViewer from '@/component/HouseViewer';
@@ -8,12 +8,12 @@ import Button from '@/component/Button';
 import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
-import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
+import { MaterialSectionVertical } from '@/component/MaterialSectionVertical'; // Assuming this component exists and will accept similar props
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { plansApi } from '@/services/api';
 
-// Type definitions
+// Type definitions (remain the same)
 interface Material {
   id: string;
   name: string;
@@ -43,17 +43,17 @@ interface Suggestion {
   buildingHeight: number;
   designer: string;
   defaultBudget: number;
-  budgetMin: number[]; // budgetMin[0] for ekonomis, budgetMin[1] for original, and budgetMin[2] for premium
-  budgetMax: number[]; // same like budgetMin but this one for the max
-  floorplans: Array<string>; // array of floorplans url
-  object: string; // 3D house design, in url
-  houseImageFront: string; // image url
-  houseImageSide: string; // image url
-  houseImageBack: string; // image url
-  pdf: string; // pdf url
-  materials0: MaterialCategory[]; // ekonomis
-  materials1: MaterialCategory[]; // original
-  materials2: MaterialCategory[]; // premium
+  budgetMin: number[];
+  budgetMax: number[];
+  floorplans: Array<string>;
+  object: string;
+  houseImageFront: string;
+  houseImageSide: string;
+  houseImageBack: string;
+  pdf: string;
+  materials0: MaterialCategory[];
+  materials1: MaterialCategory[];
+  materials2: MaterialCategory[];
 }
 
 interface UserInput {
@@ -71,7 +71,7 @@ interface FloorplanData {
   id: number;
   floor: number;
   name: string;
-  source: any; // Either a require() or a {uri: string}
+  source: any;
   orientation: 'horizontal' | 'vertical';
 }
 
@@ -86,34 +86,31 @@ const HouseDetailPage = () => {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   
-  // Add states for notification
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState<'save' | 'download' | 'already_saved'>('download');
   const fadeAnim = useState(new Animated.Value(0))[0];
   
-  // Add loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   
-  // Add state to track if design is already saved
   const [isAlreadySaved, setIsAlreadySaved] = useState(false);
   const [isCheckingSaved, setIsCheckingSaved] = useState(true);
-  
-  // Parse params on component mount
+
+  // State for selected budget type: 0 for Ekonomis, 1 for Original, 2 for Premium
+  const [selectedBudgetTypeIndex, setSelectedBudgetTypeIndex] = useState<number>(1);
+
   React.useEffect(() => {
     try {
-      // Handle Saved page navigation (planDetails param)
       if (params.planDetails) {
         const parsedPlan = JSON.parse(params.planDetails as string);
         setSuggestion(parsedPlan.suggestions);
         setUserInput(parsedPlan.userInput);
-        // Design is already saved if coming from saved plans
         setIsAlreadySaved(true);
         setIsCheckingSaved(false);
+        // Consider loading saved budget type index if available in parsedPlan
         return;
       }
 
-      // Handle Result page navigation (suggestion and userInput params)
       if (params.suggestion) {
         const parsedSuggestion = JSON.parse(params.suggestion as string);
         setSuggestion(parsedSuggestion);
@@ -125,49 +122,38 @@ const HouseDetailPage = () => {
       }
     } catch (error) {
       console.error('Error parsing params:', error);
-      setErrorMsg('Error loading house details. Please try again.');
+      setErrorMsg('Gagal memuat detail rumah. Silakan coba lagi.');
     }
   }, [params.suggestion, params.userInput, params.planDetails]);
 
-  // Check if this suggestion is already saved
   useEffect(() => {
-    // Only check if we have a suggestion and are not already known to be saved
     if (suggestion && !isAlreadySaved && !params.planDetails) {
       checkIfDesignIsSaved();
     }
-  }, [suggestion]);
+  }, [suggestion, isAlreadySaved, params.planDetails]);
 
-  // Function to check if current design is already saved
   const checkIfDesignIsSaved = async () => {
     if (!suggestion) return;
-    
     setIsCheckingSaved(true);
-    
     try {
-      // Fetch user's saved plans
       const response = await plansApi.getPlans();
-      
       if (response.code === 200 && response.data) {
-        // Check if current suggestion exists in saved plans
         const isSaved = response.data.some(plan => 
           plan.suggestions.id === suggestion.id
         );
-        
         setIsAlreadySaved(isSaved);
       }
     } catch (error) {
-      console.error('Error checking saved plans:', error);
+      console.error('Error memeriksa denah tersimpan:', error);
     } finally {
       setIsCheckingSaved(false);
     }
   };
 
-  // Generate floorplan data from the suggestion
   const floorplans: FloorplanData[] = React.useMemo(() => {
     if (!suggestion || !suggestion.floorplans || suggestion.floorplans.length === 0) {
       return [];
     }
-    
     return suggestion.floorplans.map((floorplanUrl, index) => ({
       id: index + 1,
       floor: index + 1,
@@ -185,44 +171,27 @@ const HouseDetailPage = () => {
     router.back();
   }, [showMaterials, router]);
 
-  // Animation functions for the notification
   const showNotificationAnimation = (type: 'save' | 'download' | 'already_saved') => {
     setNotificationType(type);
     setShowNotification(true);
     Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.delay(2000), // Show for 2 seconds
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      })
-    ]).start(() => {
-      setShowNotification(false);
-    });
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2000),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true })
+    ]).start(() => setShowNotification(false));
   };
 
-  // Function to save design to API
   const saveDesign = async (): Promise<boolean> => {
-    // Don't save if already saved
     if (isAlreadySaved) {
       showNotificationAnimation('already_saved');
       return false;
     }
-    
     if (!suggestion || !userInput) {
-      Alert.alert('Error', 'Missing required data to save design');
+      Alert.alert('Kesalahan', 'Data yang diperlukan untuk menyimpan desain tidak lengkap');
       return false;
     }
-
     setIsSaving(true);
-
     try {
-      // Prepare the request body according to the API requirements
       const saveData = {
         style: userInput.style,
         landArea: userInput.landArea,
@@ -234,26 +203,21 @@ const HouseDetailPage = () => {
         rooms: userInput.rooms,
         suggestionId: suggestion.id
       };
-
-      // Use the new plansApi method
       const response = await plansApi.savePlan(saveData);
-      
       setIsSaving(false);
-      
-      // Check if the save was successful
       if (response.code === 200) {
-        console.log('Design saved successfully:', response.message);
+        console.log('Desain berhasil disimpan:', response.message);
         setIsAlreadySaved(true);
         return true;
       } else {
-        console.error('Failed to save design:', response.error);
-        Alert.alert('Error', 'Failed to save design. Please try again.');
+        console.error('Gagal menyimpan desain:', response.error);
+        Alert.alert('Kesalahan', 'Gagal menyimpan desain. Silakan coba lagi.');
         return false;
       }
     } catch (error) {
       setIsSaving(false);
       console.error('Error saving design:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again later.');
+      Alert.alert('Kesalahan', 'Terjadi kesalahan tak terduga. Silakan coba lagi nanti.');
       return false;
     }
   };
@@ -307,75 +271,51 @@ const HouseDetailPage = () => {
 
   const handleAction = async (action: 'save' | 'download') => {
     let success = false;
-    
     if (action === 'save') {
       if (isAlreadySaved) {
-        // If already saved, just show notification
         showNotificationAnimation('already_saved');
         return;
       }
-      
-      if (isSaving) return; // Prevent multiple clicks
+      if (isSaving) return;
       success = await saveDesign();
     } else {
-      if (isDownloading) return; // Prevent multiple clicks
+      if (isDownloading) return;
       success = await downloadPDF();
     }
-    
-    // Only show notification if operation was successful
     if (success) {
       showNotificationAnimation(action);
     }
   };
 
-  // Function to verify the model URL is accessible
   const verifyModelUrl = useCallback(async () => {
     if (!suggestion?.object || errorMsg?.includes(suggestion.object)) return;
-
     try {
-      const response = await fetch(suggestion.object, {
-        method: 'HEAD',
-        headers: {
-          'ngrok-skip-browser-warning': '1',
-          'User-Agent': 'ReactNativeApp'
-        }
-      });
-      
+      const response = await fetch(suggestion.object, { method: 'HEAD', headers: { 'ngrok-skip-browser-warning': '1', 'User-Agent': 'ReactNativeApp' }});
       if (!response.ok) {
         setErrorMsg(`Yah, model 3Dnya belum bisa tampil... (Error: ${response.status})`);
+      } else {
+        setErrorMsg(null); // Clear error if successful
       }
     } catch (error) {
       setErrorMsg('Koneksi bermasalah. Cek internetmu!');
     }
   }, [suggestion?.object, errorMsg]);
 
-  // Set up orientation control when component mounts
   React.useEffect(() => {
     const setupOrientation = async () => {
-      try {
-        await ScreenOrientation.unlockAsync();
-      } catch (error) {
-        console.error('Failed to unlock orientation:', error);
-      }
+      try { await ScreenOrientation.unlockAsync(); } 
+      catch (error) { console.error('Gagal membuka kunci orientasi:', error); }
     };
-
     setupOrientation();
-
     return () => {
       const lockPortrait = async () => {
-        try {
-          await ScreenOrientation.lockAsync(
-            ScreenOrientation.OrientationLock.PORTRAIT_UP
-          );
-        } catch (error) {
-          console.error('Failed to lock orientation:', error);
-        }
+        try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } 
+        catch (error) { console.error('Gagal mengunci orientasi:', error); }
       };
       lockPortrait();
     };
   }, []);
 
-  // Separate useEffect for model verification
   React.useEffect(() => {
     if (suggestion?.object) {
       verifyModelUrl();
@@ -386,48 +326,38 @@ const HouseDetailPage = () => {
     setShowMaterials(false);
   }, [isLandscape]);
 
-  // Format budget range to display
   const formatBudgetRange = (forLandscape: boolean = true) => {
     if (!suggestion) return '';
     
     const formatCurrency = (amount: number) => {
-      if (amount >= 1000000000) {
-        return `${(amount / 1000000000).toFixed(3)} miliar`;
-      } else if (amount >= 1000000) {
-        return `${(amount / 1000000).toFixed(1)} juta`;
+      if (amount >= 1000000000) { // Miliar
+        return `${(amount / 1000000000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 3 })} Miliar`;
+      } else if (amount >= 1000000) { // Juta
+        return `${(amount / 1000000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Juta`;
       }
-      return amount.toString();
+      return amount.toLocaleString('id-ID');
     };
     
-    // Using the default budget index (usually 1 for original)
-    const defaultIndex = 1;
-    const minBudget = suggestion.budgetMin[defaultIndex];
-    const maxBudget = suggestion.budgetMax[defaultIndex];
+    const minBudget = suggestion.budgetMin[selectedBudgetTypeIndex];
+    const maxBudget = suggestion.budgetMax[selectedBudgetTypeIndex];
     
     const formattedMin = `Rp${formatCurrency(minBudget * suggestion.buildingArea)}`;
     const formattedMax = `Rp${formatCurrency(maxBudget * suggestion.buildingArea)}`;
     
-    // Different formatting for landscape and portrait
     return forLandscape 
       ? `${formattedMin} - ${formattedMax}`
       : `${formattedMin} -\n${formattedMax}`;
   };
 
-  // Helper function to get notification message based on type
   const getNotificationMessage = () => {
     switch (notificationType) {
-      case 'save':
-        return 'Desain rumah berhasil disimpan';
-      case 'download':
-        return 'PDF berhasil diunduh';
-      case 'already_saved':
-        return 'Desain rumah sudah pernah disimpan';
-      default:
-        return '';
+      case 'save': return 'Desain rumah berhasil disimpan';
+      case 'download': return 'PDF berhasil diunduh';
+      case 'already_saved': return 'Desain rumah sudah pernah disimpan';
+      default: return '';
     }
   };
 
-  // Get save button text based on saved status
   const getSaveButtonText = () => {
     if (isCheckingSaved) return "Memeriksa...";
     if (isAlreadySaved) return "Tersimpan";
@@ -435,7 +365,6 @@ const HouseDetailPage = () => {
     return "Simpan";
   };
 
-  // Get save button icon based on saved status
   const getSaveButtonIcon = () => {
     if (isCheckingSaved) return "hourglass-empty";
     if (isAlreadySaved) return "bookmark";
@@ -443,18 +372,14 @@ const HouseDetailPage = () => {
     return "bookmark-outline";
   };
 
-  // If there's no suggestion data yet, show loading
   if (!suggestion) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <Text>Loading house details...</Text>
-        </View>
+        <View style={styles.loadingContainer}><Text>Memuat detail rumah...</Text></View>
       </SafeAreaView>
     );
   }
 
-  // Render landscape layout
   if (isLandscape) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -464,17 +389,9 @@ const HouseDetailPage = () => {
               {errorMsg ? (
                 <View style={styles.errorMessageContainer}>
                   <Text style={styles.errorMessageText}>{errorMsg}</Text>
-                  <Button 
-                    title="Muat Ulang" 
-                    variant="primary"
-                    onPress={verifyModelUrl}
-                  />
+                  <Button title="Muat Ulang" variant="primary" onPress={verifyModelUrl} />
                 </View>
-              ) : (
-                <HouseViewer 
-                  modelUri={suggestion.object}
-                />
-              )}
+              ) : ( <HouseViewer modelUri={suggestion.object} /> )}
 
               {showMaterials && suggestion && (
                 <MaterialSection
@@ -485,19 +402,19 @@ const HouseDetailPage = () => {
                   materials0={suggestion.materials0}
                   materials1={suggestion.materials1}
                   materials2={suggestion.materials2}
+                  selectedBudgetTypeIndex={selectedBudgetTypeIndex}
+                  onBudgetTypeChange={setSelectedBudgetTypeIndex}
                 />
               )}
-              
               <View style={styles.landscapeCopyrightContainer}>
-                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Didesain oleh {suggestion.designer || 'Naila Juniah'}</Text>
               </View>
             </View>
           ) : (
             <View style={styles.landscapeViewerContainer}>
               <FloorplanViewer floorplans={floorplans} isLandscape={true} />
-              
               <View style={styles.landscapeCopyrightContainer}>
-                <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
+                <Text style={[styles.copyrightText, theme.typography.overline]}>© Didesain oleh {suggestion.designer || 'Naila Juniah'}</Text>
               </View>
             </View>
           )}
@@ -509,42 +426,13 @@ const HouseDetailPage = () => {
           <View style={styles.landscapeHeader}>
             <Text style={[styles.title, theme.typography.title]}>Rumah {suggestion.houseNumber}</Text>
             <View style={styles.tabs}>
-              <Button 
-                title="3D Rumah" 
-                variant="outline"
-                onPress={() => setIs3D(true)}
-                selected={is3D}
-                minHeight={20}
-                minWidth={50}
-                paddingVertical={4}
-                paddingHorizontal={12}
-              />
-              <Button 
-                title="Denah" 
-                variant="outline"
-                onPress={() => setIs3D(false)}
-                selected={!is3D}
-                minHeight={8}
-                minWidth={50}
-                paddingVertical={4}
-                paddingHorizontal={12}
-              />
+              <Button title="3D Rumah" variant="outline" onPress={() => setIs3D(true)} selected={is3D} minHeight={20} minWidth={50} paddingVertical={4} paddingHorizontal={12}/>
+              <Button title="Denah" variant="outline" onPress={() => setIs3D(false)} selected={!is3D} minHeight={8} minWidth={50} paddingVertical={4} paddingHorizontal={12}/>
             </View>
           </View>
 
           {is3D && (
-            <Button 
-              title="Material" 
-              variant="outline"
-              icon={<MaterialIcons name="grid-view" size={16}/>}
-              iconPosition='left'
-              onPress={() => setShowMaterials(!showMaterials)}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-              style={{position: 'absolute', right: '70%', bottom: '60%'}}
-            />
+            <Button title="Material" variant="outline" icon={<MaterialIcons name="grid-view" size={16}/>} iconPosition='left' onPress={() => setShowMaterials(!showMaterials)} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6} style={{position: 'absolute', right: '70%', bottom: '60%'}}/>
           )}
 
           <View style={styles.landscapeRightSidebar}>
@@ -552,45 +440,14 @@ const HouseDetailPage = () => {
               <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget</Text>
               <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>{formatBudgetRange()}</Text>
             </View>
-            
-            <Button 
-              title={isDownloading ? "Mengunduh..." : "Unduh PDF"}
-              variant="primary"
-              icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>}
-              iconPosition='left'
-              onPress={() => handleAction('download')}
-              disabled={!suggestion?.pdf || isDownloading}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
-            <Button 
-              title={getSaveButtonText()}
-              variant={isAlreadySaved ? "outline" : "primary"}
-              icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>}
-              iconPosition='left'
-              onPress={() => handleAction('save')}
-              disabled={isSaving || isCheckingSaved}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
+            <Button title={isDownloading ? "Mengunduh..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
+            <Button title={getSaveButtonText()} variant={isAlreadySaved ? "outline" : "primary"} icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>} iconPosition='left' onPress={() => handleAction('save')} disabled={isSaving || isCheckingSaved} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
           </View>
           
-          {/* Show notification if active */}
           {showNotification && (
-            <Animated.View style={[
-              styles.notificationContainer,
-              { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
-            ]}>
+            <Animated.View style={[styles.notificationContainer, { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }]}>
               <View style={styles.notificationContent}>
-                <MaterialIcons 
-                  name={notificationType === 'already_saved' ? "info" : "check-circle"} 
-                  size={24} 
-                  color={theme.colors.customWhite[50]} 
-                />
+                <MaterialIcons name={notificationType === 'already_saved' ? "info" : "check-circle"} size={24} color={theme.colors.customWhite[50]} />
                 <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
               </View>
             </Animated.View>
@@ -600,7 +457,6 @@ const HouseDetailPage = () => {
     );
   }
 
-  // Default portrait layout
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -610,26 +466,8 @@ const HouseDetailPage = () => {
           </TouchableOpacity>
           <Text style={[styles.title, theme.typography.title]}>Rumah {suggestion.houseNumber}</Text>
           <View style={styles.tabs}>
-            <Button 
-              title="3D Rumah" 
-              variant="outline"
-              onPress={() => setIs3D(true)}
-              selected={is3D}
-              minHeight={20}
-              minWidth={50}
-              paddingVertical={4}
-              paddingHorizontal={12}
-            />
-            <Button 
-              title="Denah" 
-              variant="outline"
-              onPress={() => setIs3D(false)}
-              selected={!is3D}
-              minHeight={8}
-              minWidth={50}
-              paddingVertical={4}
-              paddingHorizontal={12}
-            />
+            <Button title="3D Rumah" variant="outline" onPress={() => setIs3D(true)} selected={is3D} minHeight={20} minWidth={50} paddingVertical={4} paddingHorizontal={12}/>
+            <Button title="Denah" variant="outline" onPress={() => setIs3D(false)} selected={!is3D} minHeight={8} minWidth={50} paddingVertical={4} paddingHorizontal={12}/>
           </View>
         </View>
 
@@ -638,20 +476,12 @@ const HouseDetailPage = () => {
             {errorMsg ? (
               <View style={styles.errorMessageContainer}>
                 <Text style={styles.errorMessageText}>{errorMsg}</Text>
-                <Button 
-                  title="Muat Ulang" 
-                  variant="primary"
-                  onPress={verifyModelUrl}
-                />
+                <Button title="Muat Ulang" variant="primary" onPress={verifyModelUrl} />
               </View>
-            ) : (
-              <HouseViewer 
-                modelUri={suggestion.object}
-              />
-            )}
+            ) : ( <HouseViewer modelUri={suggestion.object} /> )}
 
             {showMaterials && suggestion && (
-              <MaterialSectionVertical
+              <MaterialSectionVertical // Assuming MaterialSectionVertical will accept these new props
                 isLandscape={isLandscape}
                 state={(data: boolean) => setShowMaterials(data)}
                 budgetMin={suggestion.budgetMin}
@@ -659,33 +489,22 @@ const HouseDetailPage = () => {
                 materials0={suggestion.materials0}
                 materials1={suggestion.materials1}
                 materials2={suggestion.materials2}
+                selectedBudgetTypeIndex={selectedBudgetTypeIndex}
+                onBudgetTypeChange={setSelectedBudgetTypeIndex}
               />
             )}
-
             <View style={styles.materialButton}>
-              <Button 
-                title="Material" 
-                variant="outline"
-                icon={<MaterialIcons name="grid-view" size={16}/>}
-                iconPosition='left'
-                onPress={() => setShowMaterials(!showMaterials)}
-                minHeight={10}
-                minWidth={50}
-                paddingHorizontal={16}
-                paddingVertical={8}
-              />
+              <Button title="Material" variant="outline" icon={<MaterialIcons name="grid-view" size={16}/>} iconPosition='left' onPress={() => setShowMaterials(!showMaterials)} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={8}/>
             </View>
-            
             <View style={styles.copyrightContainer}>
-              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Didesain oleh {suggestion.designer || 'Naila Juniah'}</Text>
             </View>
           </View>
         ) : (
           <View style={styles.viewerContainer}>
             <FloorplanViewer floorplans={floorplans} isLandscape={false} />
-              
             <View style={styles.copyrightContainer}>
-              <Text style={[styles.copyrightText, theme.typography.overline]}>© Designed by {suggestion.designer || 'Naila Juniah'}</Text>
+              <Text style={[styles.copyrightText, theme.typography.overline]}>© Didesain oleh {suggestion.designer || 'Naila Juniah'}</Text>
             </View>
           </View>
         )}
@@ -693,49 +512,18 @@ const HouseDetailPage = () => {
         <View style={styles.infoContainer}>
           <View style={styles.budgetInfo}>
             <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
-            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>{formatBudgetRange()}</Text>
+            <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>{formatBudgetRange(false)}</Text>
           </View>
-
           <View style={styles.buttonContainer}>
-            <Button 
-              title={getSaveButtonText()}
-              variant={isAlreadySaved ? "outline" : "primary"}
-              icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>}
-              iconPosition='left'
-              onPress={() => handleAction('save')}
-              disabled={isSaving || isCheckingSaved}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
-            <Button 
-              title={isDownloading ? "Mengunduh..." : "Unduh PDF"}
-              variant="primary"
-              icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>}
-              iconPosition='left'
-              onPress={() => handleAction('download')}
-              disabled={!suggestion?.pdf || isDownloading}
-              minHeight={10}
-              minWidth={50}
-              paddingHorizontal={16}
-              paddingVertical={6}
-            />
+            <Button title={getSaveButtonText()} variant={isAlreadySaved ? "outline" : "primary"} icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>} iconPosition='left' onPress={() => handleAction('save')} disabled={isSaving || isCheckingSaved} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
+            <Button title={isDownloading ? "Mengunduh..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
           </View>
         </View>
         
-        {/* Show notification if active */}
         {showNotification && (
-          <Animated.View style={[
-            styles.notificationContainer,
-            { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }
-          ]}>
+          <Animated.View style={[styles.notificationContainer, { opacity: fadeAnim, top: isLandscape? '80%' : '14%' }]}>
             <View style={styles.notificationContent}>
-              <MaterialIcons 
-                name={notificationType === 'already_saved' ? "info" : "check-circle"} 
-                size={24} 
-                color={theme.colors.customWhite[50]} 
-              />
+              <MaterialIcons name={notificationType === 'already_saved' ? "info" : "check-circle"} size={24} color={theme.colors.customWhite[50]} />
               <Text style={styles.notificationText}>  {getNotificationMessage()}</Text>
             </View>
           </Animated.View>
@@ -746,6 +534,7 @@ const HouseDetailPage = () => {
 };
 
 const styles = StyleSheet.create({
+  // Styles remain the same
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
@@ -784,8 +573,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorMessageText: {
-    color: '#721c24',
-    backgroundColor: '#f8d7da',
+    color: '#721c24', // Consider using theme colors
+    backgroundColor: '#f8d7da', // Consider using theme colors
     padding: 16,
     borderRadius: 24,
     textAlign: 'center',
@@ -820,8 +609,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     bottom: '1%'
   },
-  
-  // Landscape styles
   landscapeContainer: {
     flex: 1,
     flexDirection: 'column',
@@ -853,7 +640,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   budgetInfoRight: {
-    backgroundColor: '#ECFAF6',
+    backgroundColor: '#ECFAF6', // Consider theme color
     padding: 8,
     borderRadius: 16,
     alignItems: 'center',

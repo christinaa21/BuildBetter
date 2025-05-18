@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, Pressable, LayoutChangeEvent, Platform, Easing } from "react-native";
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Pressable, LayoutChangeEvent, Platform, Easing, Image, ActivityIndicator } from "react-native";
 import { theme } from "@/app/theme";
 import { Card } from "./Card";
 import { GridContainer } from "./GridContainer";
@@ -33,7 +33,7 @@ interface BudgetOption {
   width?: number;
 }
 
-// Props interface for the MaterialSectionVertical component
+// Updated Props interface for the MaterialSectionVertical component
 interface MaterialSectionVerticalProps {
   budgetMin: number[];
   budgetMax: number[];
@@ -42,6 +42,8 @@ interface MaterialSectionVerticalProps {
   materials2?: any;
   isLandscape?: boolean;
   state: (data: boolean) => void;
+  selectedBudgetTypeIndex: number; // New prop from parent
+  onBudgetTypeChange: (index: number) => void; // New callback prop to parent
 }
 
 // Interface for mapped category types with icons
@@ -51,6 +53,72 @@ interface CategoryType {
   icon: React.ReactNode;
 }
 
+// Custom component for Material Card with loading indicator
+interface MaterialCardProps {
+  material: Material;
+  style?: any;
+}
+
+const MaterialCard: React.FC<MaterialCardProps> = ({ material, style }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const handleLoadStart = () => {
+    setIsLoading(true);
+    setHasError(false);
+  };
+
+  const handleLoadEnd = () => {
+    setIsLoading(false);
+  };
+
+  const handleError = () => {
+    setIsLoading(false);
+    setHasError(true);
+  };
+
+  return (
+    <View style={[styles.materialCardVertical, style]}>
+      <View style={styles.imageContainer}>
+        {material.image && !hasError ? (
+          <Image
+            source={{ uri: material.image }}
+            style={styles.materialImage}
+            onLoadStart={handleLoadStart}
+            onLoadEnd={handleLoadEnd}
+            onError={handleError}
+            resizeMode="contain"
+          />
+        ) : (
+          <View style={[styles.materialImage, styles.placeholderContainer]}>
+            <MaterialIcons 
+              name="image" 
+              size={32} 
+              color={theme.colors.customGray[100]} 
+            />
+          </View>
+        )}
+        
+        {isLoading && material.image && !hasError && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator 
+              size="small" 
+              color={theme.colors.customGreen[300]} 
+            />
+          </View>
+        )}
+      </View>
+      
+      <Text style={styles.materialTitle} numberOfLines={2}>
+        {material.name}
+      </Text>
+      <Text style={styles.materialDescription} numberOfLines={1}>
+        {material.subcategory}
+      </Text>
+    </View>
+  );
+};
+
 export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = ({ 
   budgetMin = [300000, 500000, 1200000],
   budgetMax = [800000, 1500000, 3000000],
@@ -58,17 +126,18 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
   materials1 = {}, 
   materials2 = {}, 
   isLandscape = false, 
-  state 
+  state,
+  selectedBudgetTypeIndex, // Destructure new prop
+  onBudgetTypeChange       // Destructure new prop
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedBudget, setSelectedBudget] = useState<string>('original');
   const panelAnimation = useRef(new Animated.Value(0)).current;
   const { height, width } = Dimensions.get('window');
   const panelHeight = height * 0.5; // 50% of screen height
   
   // Create animated values for each budget option
-  const originalAnimation = useRef(new Animated.Value(1)).current;
+  const originalAnimation = useRef(new Animated.Value(0)).current;
   const ekonomisAnimation = useRef(new Animated.Value(0)).current;
   const premiumAnimation = useRef(new Animated.Value(0)).current;
   
@@ -78,43 +147,51 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
     ekonomis: 0,
     premium: 0
   });
+
+  const getBudgetIdFromIndex = useCallback((index: number): string => {
+    if (index === 0) return 'ekonomis';
+    if (index === 2) return 'premium';
+    return 'original';
+  }, []);
+  
+  const [currentDisplayBudget, setCurrentDisplayBudget] = useState<string>(() => getBudgetIdFromIndex(selectedBudgetTypeIndex));
   
   // Format price to Rupiah
   const formatPriceToRupiah = (price: number) => {
     if (price >= 1000000) {
-      return `Rp${(price / 1000000).toFixed(3)} juta`;
+      return `Rp${(price / 1000000).toFixed(1).replace('.', ',')} jt`;
     } else if (price >= 1000) {
-      return `Rp${(price / 1000).toFixed(0)} ribu`;
+      return `Rp${(price / 1000).toFixed(0)} rb`;
     }
-    return `Rp${price}`;
+    return `Rp${price.toLocaleString('id-ID')}`;
   };
 
-  // Dynamic budget options data - now using props
-  const getBudgetOptions = (): BudgetOption[] => {
+  // Dynamic budget options data - now using props and memoized
+  const getBudgetOptions = useCallback((): BudgetOption[] => {
     return [
       { 
         id: 'original', 
         title: 'Original', 
         priceRange: `${formatPriceToRupiah(budgetMin[1])} - ${formatPriceToRupiah(budgetMax[1])}`, 
         animation: originalAnimation,
-        width: 110 // Estimated width, will be updated on measurement
+        width: budgetRangeWidths.original || 110
       },
       { 
         id: 'ekonomis', 
         title: 'Ekonomis', 
         priceRange: `${formatPriceToRupiah(budgetMin[0])} - ${formatPriceToRupiah(budgetMax[0])}`, 
         animation: ekonomisAnimation,
-        width: 105 // Estimated width, will be updated on measurement
+        width: budgetRangeWidths.ekonomis || 105
       },
       { 
         id: 'premium', 
         title: 'Premium', 
         priceRange: `${formatPriceToRupiah(budgetMin[2])} - ${formatPriceToRupiah(budgetMax[2])}`, 
         animation: premiumAnimation,
-        width: 95 // Estimated width, will be updated on measurement
+        width: budgetRangeWidths.premium || 95
       }
     ];
-  };
+  }, [budgetMin, budgetMax, originalAnimation, ekonomisAnimation, premiumAnimation, budgetRangeWidths]);
   
   // Map for category icons
   const categoryIcons: { [key: string]: React.ReactNode } = {
@@ -125,12 +202,31 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
     'balok-kolom': <CubeTransparent size={24} color={theme.colors.customGreen[300]} />
   };
 
-  // Initial animation setup
-  useEffect(() => {
-    // Initialize animations based on the default selected budget
-    animateBudgetSelection('original', false);
-  }, []);
+  // Function to animate budget selection changes with improved animation config
+  const animateBudgetSelection = useCallback((budgetId: string, animate = true) => {
+    const options = getBudgetOptions();
+    const animations = options.map(budget => {
+      const toValue = budget.id === budgetId ? 1 : 0;
+      return Animated.timing(budget.animation!, {
+        toValue,
+        duration: animate ? 200 : 0,
+        useNativeDriver: false,
+        easing: Easing.inOut(Easing.ease),
+      });
+    });
+    Animated.parallel(animations).start();
+  }, [getBudgetOptions]);
 
+  // Effect to handle prop changes from parent
+  useEffect(() => {
+    const budgetIdFromProp = getBudgetIdFromIndex(selectedBudgetTypeIndex);
+    if (currentDisplayBudget !== budgetIdFromProp) {
+      setCurrentDisplayBudget(budgetIdFromProp);
+      animateBudgetSelection(budgetIdFromProp, true);
+    }
+  }, [selectedBudgetTypeIndex, getBudgetIdFromIndex, currentDisplayBudget, animateBudgetSelection]);
+
+  // Initial animation setup
   useEffect(() => {
     if (isOpen) {
       Animated.timing(panelAnimation, {
@@ -140,7 +236,9 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
         easing: Easing.out(Easing.ease),
       }).start();
     }
-  }, []);
+    // Initialize animations based on the current display budget
+    animateBudgetSelection(currentDisplayBudget, false);
+  }, [isOpen]); // Only re-run if isOpen changes for panel; budget animation runs once based on initial currentDisplayBudget
 
   const closePanel = () => {
     Animated.timing(panelAnimation, {
@@ -160,27 +258,12 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
     setSelectedCategory(categoryId);
   };
 
-  // Function to animate budget selection changes with improved animation config
-  const animateBudgetSelection = (budgetId: string, animate = true) => {
-    // Create animation sequence for each budget option
-    const animations = getBudgetOptions().map(budget => {
-      const toValue = budget.id === budgetId ? 1 : 0;
-      return Animated.timing(budget.animation!, {
-        toValue,
-        duration: animate ? 200 : 0, // No animation on initial setup
-        useNativeDriver: false, // These animations modify layout, can't use native driver
-        easing: Easing.inOut(Easing.ease),
-      });
-    });
-
-    // Run animations in parallel
-    Animated.parallel(animations).start();
-  };
-
-  // Function to handle budget selection
+  // Function to handle budget selection - now communicates with parent
   const handleBudgetSelect = (budgetId: string) => {
-    setSelectedBudget(budgetId);
-    animateBudgetSelection(budgetId);
+    let index = 1; // Default to original
+    if (budgetId === 'ekonomis') index = 0;
+    else if (budgetId === 'premium') index = 2;
+    onBudgetTypeChange(index); // Notify parent
   };
 
   // Function to measure the width of a budget range text
@@ -193,7 +276,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
   };
 
   const transformMaterialsToArray = (materialsObj: any): MaterialCategory[] => {
-    if (!materialsObj) return [];
+    if (!materialsObj || typeof materialsObj !== 'object') return []; // Added type check
 
     return Object.keys(materialsObj).map(categoryName => ({
       category: categoryName,
@@ -215,14 +298,8 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
     const categoriesSet = new Set<string>();
     
     // Collect all unique categories from all budget levels
-    const materialArrays = [
-      transformMaterialsToArray(materials0),
-      transformMaterialsToArray(materials1),
-      transformMaterialsToArray(materials2)
-    ];
-    
-    materialArrays.forEach(materialsByBudget => {
-      materialsByBudget.forEach(category => {
+    [materials0, materials1, materials2].forEach(matGroup => {
+      transformMaterialsToArray(matGroup).forEach(category => {
         categoriesSet.add(category.category.toLowerCase());
       });
     });
@@ -237,19 +314,16 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
 
   // Map budget string IDs to materials array index
   const getBudgetMaterialsIndex = (budgetId: string): number => {
-    switch(budgetId) {
-      case 'ekonomis': return 0;
-      case 'original': return 1;
-      case 'premium': return 2;
-      default: return 1; // Default to original
-    }
+    if (budgetId === 'ekonomis') return 0;
+    if (budgetId === 'premium') return 2;
+    return 1; // original
   };
 
   // Get materials for the selected category and budget
   const getMaterialsForCategory = () => {
     if (!selectedCategory) return [];
     
-    const budgetIndex = getBudgetMaterialsIndex(selectedBudget);
+    const budgetIndex = getBudgetMaterialsIndex(currentDisplayBudget); // Use currentDisplayBudget
     const materialsByBudget = budgetIndex === 0 ? 
       transformMaterialsToArray(materials0) : 
       budgetIndex === 1 ? 
@@ -278,7 +352,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
   // Get the current budget price range
   const getCurrentBudgetPriceRange = () => {
     const budgetOptions = getBudgetOptions();
-    const currentBudget = budgetOptions.find(budget => budget.id === selectedBudget);
+    const currentBudget = budgetOptions.find(budget => budget.id === currentDisplayBudget);
     return currentBudget?.priceRange || '';
   };
 
@@ -308,14 +382,14 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
               key={budget.id}
               style={[
                 styles.budgetButtonVertical,
-                selectedBudget === budget.id && styles.selectedBudgetButton
+                currentDisplayBudget === budget.id && styles.selectedBudgetButton
               ]}
               onPress={() => handleBudgetSelect(budget.id)}
             >
               <Text
                 style={[
                   styles.budgetButtonText,
-                  selectedBudget === budget.id && styles.selectedBudgetButtonText
+                  currentDisplayBudget === budget.id && styles.selectedBudgetButtonText
                 ]}
                 numberOfLines={1}
               >
@@ -339,7 +413,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
       <View style={styles.emptyStateContainer}>
         <MaterialIcons name="help" size={48} color={theme.colors.customGray[100]} />
         <Text style={styles.emptyStateMessage}>
-          Mohon maaf, saat ini belum ada material {selectedCategory} untuk kategori budget {selectedBudget}.
+          Mohon maaf, saat ini belum ada material {selectedCategory} untuk kategori budget {currentDisplayBudget}.
         </Text>
       </View>
     );
@@ -382,7 +456,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
 
             <Text style={styles.panelTitle}>
               {selectedCategory 
-                ? (getAllCategories().find(cat => cat.id === selectedCategory)?.title || 'Materials')
+                ? (getAllCategories().find(cat => cat.id === selectedCategory)?.title || 'Material')
                 : "Material"
               }
             </Text>
@@ -429,15 +503,7 @@ export const MaterialSectionVertical: React.FC<MaterialSectionVerticalProps> = (
                 columnSpacing={16}
                 rowSpacing={16}
                 renderItem={(item) => (
-                  <Card
-                    image={item.image ? { uri: item.image } : undefined}
-                    title={item.name}
-                    description={item.subcategory}
-                    showButton={false}
-                    imageStyle={styles.materialImage}
-                    style={styles.materialCardVertical}
-                    touchable={false}
-                  />
+                  <MaterialCard material={item} />
                 )}
                 contentContainerStyle={styles.gridContainerVertical}
               />
@@ -573,19 +639,55 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     minHeight: 100,
   },
-  materialImage: {
-    width: 80,
-    height: 50,
-    alignSelf: 'center',
-    resizeMode: 'contain'
-  },
-  // Material cards for vertical layout
+  // Material cards for vertical layout - updated to remove Card component dependency
   materialCardVertical: {
     width: '100%',
     backgroundColor: '#CAE1DB',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderRadius: 8,
+  },
+  // Image container and loading states
+  imageContainer: {
+    position: 'relative',
+    width: 80,
+    height: 50,
+    marginBottom: 8,
+  },
+  materialImage: {
+    width: 80,
+    height: 50,
+    borderRadius: 4,
+  },
+  placeholderContainer: {
+    backgroundColor: theme.colors.customGray[50],
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 4,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 4,
+  },
+  materialTitle: {
+    ...theme.typography.body2,
+    fontWeight: '600',
+    color: theme.colors.customOlive[50],
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  materialDescription: {
+    ...theme.typography.caption,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
   },
   // Empty state styles
   emptyStateContainer: {

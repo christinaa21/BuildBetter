@@ -111,6 +111,36 @@ export default function RootLayout() {
             headerTitleStyle: theme.typography.title,
           }}
         />
+        <Stack.Screen 
+          name="profile/edit" 
+          options={{
+            headerShown: true,
+            headerTitle: "Edit Profil",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="profile/help" 
+          options={{
+            headerShown: true,
+            headerTitle: "Pusat Bantuan",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
+        <Stack.Screen 
+          name="profile/change-password" 
+          options={{
+            headerShown: true,
+            headerTitle: "Ubah Kata Sandi",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );
