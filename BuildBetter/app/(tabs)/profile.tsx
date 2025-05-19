@@ -15,7 +15,7 @@ interface UserProfileResponse {
   username:string;
   province: string;
   city: string;
-  photos: null | string;
+  photo: null | string;
   role: string;
   createdAt: string;
 }
@@ -85,12 +85,12 @@ export default function Profile() {
   };
 
   const getProfileImage = () => {
-    if (!userProfile || userProfile.photos === null) {
+    if (!userProfile || userProfile.photo === null) {
       return require('@/assets/images/blank-profile.png');
     }
 
     try {
-      const photoNumber = parseInt(userProfile.photos);
+      const photoNumber = parseInt(userProfile.photo);
       if (isNaN(photoNumber) || photoNumber < 1 || photoNumber > 11) {
         return require('@/assets/images/blank-profile.png');
       }
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   },
   profileTextContent: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   editProfileText: {
     marginTop: 6,
