@@ -833,28 +833,28 @@
       "value": "dki jakarta",
       "cities": [
         {
-          "label": "Kota Administrasi Jakarta Pusat",
-          "value": "kota administrasi jakarta pusat"
+          "label": "Kota Jakarta Pusat",
+          "value": "kota jakarta pusat"
         },
         {
-          "label": "Kota Administrasi Jakarta Utara",
-          "value": "kota administrasi jakarta utara"
+          "label": "Kota Jakarta Utara",
+          "value": "kota jakarta utara"
         },
         {
-          "label": "Kota Administrasi Jakarta Barat",
-          "value": "kota administrasi jakarta barat"
+          "label": "Kota Jakarta Barat",
+          "value": "kota jakarta barat"
         },
         {
-          "label": "Kota Administrasi Jakarta Selatan",
-          "value": "kota administrasi jakarta selatan"
+          "label": "Kota Jakarta Selatan",
+          "value": "kota jakarta selatan"
         },
         {
-          "label": "Kota Administrasi Jakarta Timur",
-          "value": "kota administrasi jakarta timur"
+          "label": "Kota Jakarta Timur",
+          "value": "kota jakarta timur"
         },
         {
-          "label": "Kabupaten Administrasi Kepulauan Seribu",
-          "value": "kabupaten administrasi kepulauan seribu"
+          "label": "Kabupaten Kepulauan Seribu",
+          "value": "kabupaten kepulauan seribu"
         }
       ]
     },

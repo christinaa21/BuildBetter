@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; // SafeAreaView is not used directly in the return, but insets are.
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { authApi } from '@/services/api';
@@ -32,16 +32,17 @@ const GREEN_HEADER_VIEW_HEIGHT = 120;
 const WHITE_SHEET_BORDER_RADIUS = 25;
 
 export default function Profile() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const name = user?.username; // Name from auth context, available faster
   const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfileResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // For fetching profile data (including photo info)
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
+      setIsLoading(true); // Set loading true when fetch starts
       try {
-        setIsLoading(true);
         const response = await authApi.getUserProfile();
         if (response.code === 200 && response.data) {
           setUserProfile(response.data);
@@ -52,7 +53,7 @@ export default function Profile() {
         console.error('Error fetching profile:', error);
         Alert.alert('Error', 'Failed to load profile data');
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Set loading false when fetch completes or fails
       }
     };
 
@@ -84,7 +85,7 @@ export default function Profile() {
     );
   };
 
-  const getProfileImage = () => {
+  const getProfileImageSource = () => { // Renamed for clarity, as it returns the source object
     if (!userProfile || userProfile.photo === null) {
       return require('@/assets/images/blank-profile.png');
     }
@@ -95,33 +96,27 @@ export default function Profile() {
         return require('@/assets/images/blank-profile.png');
       }
 
-      switch(photoNumber) {
-        case 1: return require('@/assets/images/1.png');
-        case 2: return require('@/assets/images/2.png');
-        case 3: return require('@/assets/images/3.png');
-        case 4: return require('@/assets/images/4.png');
-        case 5: return require('@/assets/images/5.png');
-        case 6: return require('@/assets/images/6.png');
-        case 7: return require('@/assets/images/7.png');
-        case 8: return require('@/assets/images/8.png');
-        case 9: return require('@/assets/images/9.png');
-        case 10: return require('@/assets/images/10.png');
-        case 11: return require('@/assets/images/11.png');
-        default: return require('@/assets/images/blank-profile.png');
-      }
+      // Using a map for cleaner switch
+      const imageMap: { [key: number]: any } = {
+        1: require('@/assets/images/1.png'),
+        2: require('@/assets/images/2.png'),
+        3: require('@/assets/images/3.png'),
+        4: require('@/assets/images/4.png'),
+        5: require('@/assets/images/5.png'),
+        6: require('@/assets/images/6.png'),
+        7: require('@/assets/images/7.png'),
+        8: require('@/assets/images/8.png'),
+        9: require('@/assets/images/9.png'),
+        10: require('@/assets/images/10.png'),
+        11: require('@/assets/images/11.png'),
+      };
+      return imageMap[photoNumber] || require('@/assets/images/blank-profile.png');
+
     } catch (error) {
       console.error('Error loading profile image:', error);
       return require('@/assets/images/blank-profile.png');
     }
   };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
-      </View>
-    );
-  }
 
   const MenuOption: React.FC<MenuOptionProps> = ({ icon, title, onPress }) => (
     <View>
@@ -147,10 +142,16 @@ export default function Profile() {
         styles.profileImageWrapper,
         { top: (GREEN_HEADER_VIEW_HEIGHT + insets.top) - (PROFILE_IMAGE_SIZE / 1.6) }
       ]}>
-        <Image
-          source={getProfileImage()}
-          style={styles.profileImage}
-        />
+        {isLoading ? (
+          <View style={styles.profileImageLoaderContainer}>
+            <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+          </View>
+        ) : (
+          <Image
+            source={getProfileImageSource()}
+            style={styles.profileImage}
+          />
+        )}
       </View>
 
       <ScrollView
@@ -158,8 +159,12 @@ export default function Profile() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Content below the profile image, shifted down by paddingTop in whiteSheet */}
         <View style={styles.profileTextContent}>
-          <Text style={[theme.typography.title, {color: theme.colors.customGreen[500]}]}>{userProfile?.username || 'User'}</Text>
+          {/* Display username from auth context (available early) or from fetched profile */}
+          <Text style={[theme.typography.title, {color: theme.colors.customGreen[500]}]}>
+            {userProfile?.username || name || 'Pengguna'}
+          </Text>
           <TouchableOpacity onPress={() => router.push('/profile/edit')}>
             <Text style={[styles.editProfileText, theme.typography.body2]}>Edit profil</Text>
           </TouchableOpacity>
@@ -202,12 +207,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.customWhite[50],
-  },
   greenHeaderBackground: {
     backgroundColor: theme.colors.customGreen[50],
     paddingHorizontal: 24,
@@ -227,12 +226,23 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: theme.colors.customWhite[50],
   },
+  // ADDED: Style for the loader container to match profile image dimensions
+  profileImageLoaderContainer: {
+    width: PROFILE_IMAGE_SIZE,
+    height: PROFILE_IMAGE_SIZE,
+    borderRadius: PROFILE_IMAGE_SIZE / 2,
+    borderWidth: 4,
+    borderColor: theme.colors.customWhite[50],
+    backgroundColor: theme.colors.customGray[50], // A light background for the loader
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   whiteSheet: {
-    flex: 1, // Takes remaining space
+    flex: 1,
     backgroundColor: theme.colors.customWhite[50],
     borderTopLeftRadius: WHITE_SHEET_BORDER_RADIUS,
     borderTopRightRadius: WHITE_SHEET_BORDER_RADIUS,
-    paddingTop: (PROFILE_IMAGE_SIZE / 2) + 20,
+    paddingTop: (PROFILE_IMAGE_SIZE / 2) + 20, // Ensure content starts below the profile image
     paddingHorizontal: 24,
   },
   profileTextContent: {
