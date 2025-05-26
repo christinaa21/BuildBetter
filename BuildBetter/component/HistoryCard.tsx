@@ -9,11 +9,11 @@ export type HistoryMetode = 'Chat' | 'Tatap Muka';
 
 export interface HistoryCardProps {
   id: string;
-  orderCreatedAt: string; // Date the order/history item was created
+  orderCreatedAt: string; 
   arsitek: string;
   metode: HistoryMetode;
-  tanggal: string; // Consultation date
-  waktu: string;   // Consultation time
+  tanggal: string; 
+  waktu: string;   
   kota: string;
   totalPembayaran: number;
   status: HistoryStatus;
@@ -30,17 +30,17 @@ interface StatusDisplayProps {
 const statusStyles: Record<HistoryStatus, StatusDisplayProps> = {
   'Menunggu konfirmasi': { backgroundColor: '#FFF3E0', dotColor: '#FF9800', textColor: theme.colors.customOlive[50] },
   'Dibatalkan': { backgroundColor: '#FFEBEE', dotColor: '#F44336', textColor: theme.colors.customOlive[50] },
-  'Dijadwalkan': { backgroundColor: theme.colors.customGreen[50], dotColor: theme.colors.customGreen[300], textColor: theme.colors.customGreen[500] },
+  'Dijadwalkan': { backgroundColor: '#CAE1DB', dotColor: theme.colors.customGreen[300], textColor: theme.colors.customOlive[50] },
   'Berlangsung': { backgroundColor: '#E3F2FD', dotColor: '#2196F3', textColor: theme.colors.customOlive[50] },
-  'Berakhir': { backgroundColor: '#FFFDE7', dotColor: '#FFC107', textColor: theme.colors.customOlive[50] },
+  'Berakhir': { backgroundColor: theme.colors.customGray[50], dotColor: theme.colors.customOlive[50], textColor: theme.colors.customOlive[50] },
 };
 
 const HistoryCard: React.FC<HistoryCardProps> = ({
   orderCreatedAt,
   arsitek,
   metode,
-  tanggal, // Consultation date
-  waktu,   // Consultation time
+  tanggal, 
+  waktu,   
   kota,
   totalPembayaran,
   status,
@@ -97,7 +97,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.customWhite[50],
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   dateText: {
     color: theme.colors.customGray[200],
@@ -120,12 +120,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 8,
     marginRight: 6,
   },
   divider: {
@@ -133,19 +133,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.customGray[50],
     marginVertical: 8,
   },
-  serviceTitle: { // Changed from serviceName
+  serviceTitle: {
     color: theme.colors.customOlive[50],
-    marginBottom: 2, // Reduced margin
-  },
-  serviceDescription: {
-    marginBottom: 6, // Added margin below description
-    fontStyle: 'italic',
-    color: theme.colors.customOlive[100],
+    marginBottom: 4,
   },
   infoText: {
-    color: theme.colors.customOlive[100],
-    marginBottom: 3,
-    fontSize: 13,
+    color: theme.colors.customOlive[50],
+    marginBottom: 2
   },
   footer: {
     flexDirection: 'row',
@@ -155,7 +149,6 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     color: theme.colors.customGray[200],
-    fontSize: 11,
   },
   paymentAmount: {
     color: theme.colors.customOlive[50],

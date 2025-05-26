@@ -5,18 +5,21 @@ import { authApi, LoginResponse } from '../services/api';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
+type User = {
+  userId?: string;
+  email?: string;
+  username?: string;
+  role?: string;
+} | null;
+
 type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: {
-    userId?: string;
-    email?: string;
-    username?: string;
-    role?: string;
-  } | null;
+  user: User;
   login: (email: string, password: string) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   redirectUnverifiedUser: (email: string) => Promise<boolean>;
+  setUser: (user: User) => void; // Add setUser function
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,7 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<AuthContextType['user']>(null);
+  const [user, setUser] = useState<User>(null);
   const router = useRouter();
 
   // Check if user is logged in on app start
@@ -119,7 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       login, 
       logout,
-      redirectUnverifiedUser
+      redirectUnverifiedUser,
+      setUser
     }}>
       {children}
     </AuthContext.Provider>

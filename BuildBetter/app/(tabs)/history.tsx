@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: 16,
     paddingBottom: 16,
     backgroundColor: theme.colors.customWhite[50],
     borderBottomWidth: 1,
@@ -255,41 +255,34 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     ...theme.typography.title,
-    color: theme.colors.customOlive[50],
+    color: theme.colors.customGreen[300],
     textAlign: 'center',
   },
   topFiltersBar: {
-    // Removed justifyContent: 'space-around'
-    flexDirection: 'row', // Keeps items in a row for the ScrollView
+    flexDirection: 'row',
     paddingVertical: 12,
     backgroundColor: theme.colors.customWhite[50],
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.customGray[50],
-    paddingHorizontal: 12, // Overall padding for the bar
+    paddingHorizontal: 16,
   },
   filtersScrollViewContent: {
-    alignItems: 'center', // Vertically center items in scroll view
-    // paddingHorizontal: 4, // Optional: if first/last item needs specific padding from scrollview edge
+    alignItems: 'center',
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.customWhite[50],
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 24,
+    borderWidth: 1,
     borderColor: theme.colors.customGreen[200],
     marginHorizontal: 4, // Spacing between buttons
-    height: 36, // Fixed height for consistency
-    // flexShrink: 1, // Allow button to shrink if text is long, used with numberOfLines
+    height: 36,
   },
   filterButtonText: {
     ...theme.typography.caption,
     color: theme.colors.customOlive[50],
     marginRight: 4,
-    fontWeight: '500',
-    // flexShrink: 1, // Allows text to shrink or be ellipsized
   },
   // Date Filter Modal Styles
   modalOverlay: {
@@ -303,13 +296,13 @@ const styles = StyleSheet.create({
      borderTopRightRadius: 16,
   },
   dateModalContent: {
-    padding:20
+    padding:24
   },
   dateModalTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.customOlive[50],
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   datePickerButton: {
     borderWidth: 1,
@@ -318,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: theme.colors.customWhite[50],
-    marginBottom: 12,
+    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -330,7 +323,6 @@ const styles = StyleSheet.create({
   datePickerButtonTextValue: {
     ...theme.typography.body2,
     color: theme.colors.customOlive[50],
-    fontWeight: '600'
   },
   dateModalActions: {
     flexDirection: 'row',
@@ -340,7 +332,7 @@ const styles = StyleSheet.create({
   // List Styles
   listContentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 24,
     flexGrow: 1, // Ensure empty component can center if list is short
   },

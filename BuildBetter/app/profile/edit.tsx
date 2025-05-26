@@ -17,7 +17,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { authApi, UpdateProfileData } from '@/services/api';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth hook
 import Textfield from '@/component/Textfield';
 import Button from '@/component/Button';
 import Dropdown from '@/component/Dropdown';
@@ -134,9 +136,9 @@ const ProfileImagePickerModal: React.FC<ProfileImagePickerModalProps> = ({
   );
 };
 
-
 export default function ProfileEdit() {
   const router = useRouter();
+  const { user, setUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isImagePickerModalVisible, setIsImagePickerModalVisible] = useState(false);
@@ -147,7 +149,7 @@ export default function ProfileEdit() {
     username: '',
     province: '',
     city: '',
-    photo: '', // Default photo ID
+    photo: '',
   });
 
   const [originalData, setOriginalData] = useState<ProfileEditFormData>({
@@ -336,6 +338,32 @@ export default function ProfileEdit() {
     setIsImagePickerModalVisible(true);
   };
 
+  // Helper function to update SecureStore and AuthContext
+  const updateStoredUserData = async (updatedEmail: string, updatedUsername: string) => {
+    try {
+      // Update SecureStore if email or username changed
+      if (updatedEmail !== originalData.email) {
+        await SecureStore.setItemAsync('userEmail', updatedEmail);
+      }
+      
+      if (updatedUsername !== originalData.username) {
+        await SecureStore.setItemAsync('username', updatedUsername);
+      }
+
+      // Update AuthContext user state
+      if (user) {
+        const updatedUser = {
+          ...user,
+          email: updatedEmail,
+          username: updatedUsername,
+        };
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Error updating stored user data:', error);
+    }
+  };
+
   const handleSave = async () => {
     Keyboard.dismiss();
 
@@ -381,6 +409,9 @@ export default function ProfileEdit() {
       const response = await authApi.updateProfile(updateData);
       
       if (response.code === 200) {
+        // Update SecureStore and AuthContext with new email and username
+        await updateStoredUserData(formData.email, formData.username);
+        
         setOriginalData(formData);
         Alert.alert(
           'Berhasil',
