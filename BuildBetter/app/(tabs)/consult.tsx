@@ -138,29 +138,19 @@ export default function BuildConsultPage() {
         <Textfield
           icon={<MaterialIcons name="search" size={16}/>}
           placeholder="Cari arsitek di sini..."
+          paddingVertical={12}
           value={searchQuery}
           onChangeText={handleSearch}
         />
-        
-        <View style={styles.infoChip}>
-          <Text style={[theme.typography.caption, styles.infoChipText]}>
-            Sebagai Informasi:
-          </Text>
-          <Text style={[theme.typography.caption, styles.infoChipText]}>
-            • 1 sesi chat: 30 menit
-          </Text>
-          <Text style={[theme.typography.caption, styles.infoChipText]}>
-            • 1 sesi tatap muka: 1 jam
-          </Text>
-          <TouchableOpacity style={styles.infoButton}>
-            <Text style={[theme.typography.caption, styles.infoButtonText]}>
-              Oke, saya paham!
-            </Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <ScrollView style={styles.architectList} showsVerticalScrollIndicator={false}>
+        <View style={styles.infoChip}>
+          <Text style={[theme.typography.subtitle1]}>Riwayat Konsultasi</Text>
+          <Text style={[theme.typography.caption, styles.infoChipText]}>
+            Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
+          </Text>
+        </View>
         {architects.map((architect) => (
           <ArchitectCard
             key={architect.id}
@@ -170,12 +160,9 @@ export default function BuildConsultPage() {
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.newChatButton} onPress={handleNewChat}>
-        <View style={styles.newChatButtonContent}>
-          <MaterialIcons name="add" size={20} color={theme.colors.customOlive[50]} />
-          <Text style={[theme.typography.caption, styles.newChatButtonText]}>
-            new chat
-          </Text>
+      <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)}>
+        <View style={styles.chatIconContainer}>
+          <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
         </View>
       </TouchableOpacity>
     </View>
@@ -246,15 +233,12 @@ const styles = StyleSheet.create({
   // Returning user styles
   searchContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 8,
   },
   infoChip: {
-    backgroundColor: theme.colors.customWhite[100],
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-    position: 'relative',
+    paddingHorizontal: 8,
+    gap: 4,
+    paddingVertical: 8,
   },
   infoChipText: {
     color: theme.colors.customOlive[50],
