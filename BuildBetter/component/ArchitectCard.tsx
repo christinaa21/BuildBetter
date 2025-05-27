@@ -1,19 +1,21 @@
 // components/ArchitectCard.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, StyleProp, ViewStyle, Linking } from 'react-native';
 import theme from '@/app/theme';
 import Button from './Button';
+import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 
 export type ArchitectStatus = 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
 
 export interface ArchitectCardProps {
   id: string;
-  name: string;
-  experience: string;
-  location: string;
-  chatPrice: number;
-  meetingPrice: number;
-  profileImage?: string;
+  username: string;
+  experience: number;
+  city: string;
+  rateOnline: number;
+  rateOffline: number;
+  portfolio?: string;
+  photo?: string;
   status?: ArchitectStatus; // Optional - only shown if user has consultation history
   onChatPress?: () => void;
   onMeetPress?: () => void;
@@ -32,78 +34,149 @@ const statusStyles: Record<ArchitectStatus, StatusDisplayProps> = {
   'Berakhir': { backgroundColor: theme.colors.customGray[50], dotColor: theme.colors.customOlive[50], textColor: theme.colors.customOlive[50] },
 };
 
+function truncate(str: string | null | undefined, maxLength: number): string {
+  if (!str || typeof str !== 'string') {
+    return '';
+  }
+  if (str.length > maxLength) {
+    return str.substring(0, maxLength) + '...';
+  }
+  return str;
+}
+
+// Helper function to safely handle URL opening
+const handlePortfolioPress = (portfolio: string | undefined) => {
+  if (!portfolio || typeof portfolio !== 'string' || portfolio.trim() === '') {
+    return;
+  }
+  
+  try {
+    // Basic URL validation
+    const url = portfolio.startsWith('http') ? portfolio : `https://${portfolio}`;
+    Linking.openURL(url).catch((err) => {
+      console.warn('Failed to open portfolio URL:', err);
+    });
+  } catch (error) {
+    console.warn('Invalid portfolio URL:', error);
+  }
+};
+
+// Helper function to safely format numbers
+const formatRate = (rate: number | null | undefined): string => {
+  if (rate === null || rate === undefined || isNaN(rate)) {
+    return '0';
+  }
+  return Math.max(0, rate).toString();
+};
+
+// Helper function to safely format experience
+const formatExperience = (experience: number | null | undefined): string => {
+  if (experience === null || experience === undefined || isNaN(experience)) {
+    return '0';
+  }
+  return Math.max(0, experience).toString();
+};
+
 const ArchitectCard: React.FC<ArchitectCardProps> = ({
-  name,
+  username,
   experience,
-  location,
-  chatPrice,
-  meetingPrice,
-  profileImage,
+  city,
+  rateOnline,
+  rateOffline,
+  photo,
   status,
+  portfolio,
   onChatPress,
   onMeetPress,
   style,
 }) => {
+  // Safe fallbacks for required props
+  const safeUsername = truncate(username, 20) || 'Unknown Architect';
+  const safeCity = truncate(city, 15) || 'Unknown City';
+  const safeExperience = formatExperience(experience);
+  const safeRateOnline = formatRate(rateOnline);
+  const safeRateOffline = formatRate(rateOffline);
+  
+  // Check if portfolio is valid
+  const hasValidPortfolio = portfolio && 
+    typeof portfolio === 'string' && 
+    portfolio.trim() !== '';
+
   return (
-    <View style={[styles.card, style]}>
-      {status && (
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusChip, { backgroundColor: statusStyles[status].backgroundColor }]}>
-            <View style={[styles.statusDot, { backgroundColor: statusStyles[status].dotColor }]} />
-            <Text style={[theme.typography.overline, { color: statusStyles[status].textColor }]}>
-              {status}
+    <TouchableOpacity
+      style={[styles.card, style]}
+      activeOpacity={0.4}>
+        <Image 
+          source={photo && typeof photo === 'string' && photo.trim() !== '' 
+            ? { uri: photo } 
+            : require('@/assets/images/blank-profile.png')
+          } 
+          style={styles.photo}
+          defaultSource={require('@/assets/images/blank-profile.png')}
+          onError={() => {
+            // Handle image loading error silently
+            console.warn('Failed to load architect photo');
+          }}
+        />
+        <View style={[{flex: 1}]}>
+          <View style={styles.header}>
+            <Text style={[theme.typography.subtitle2, styles.name]}>
+              {safeUsername}
             </Text>
-          </View>
-        </View>
-      )}
-      
-      <View style={[styles.content, status && styles.contentWithStatus]}>
-        <View style={styles.profileSection}>
-          <View style={styles.profileImageContainer}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.placeholderImage} />
+            {status && statusStyles[status] && (
+              <View style={[styles.statusChip, { backgroundColor: statusStyles[status].backgroundColor }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusStyles[status].dotColor }]} />
+                <Text style={[theme.typography.overline, { color: statusStyles[status].textColor }]}>
+                  {status}
+                </Text>
+              </View>
             )}
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={[theme.typography.subtitle2, styles.name]}>{name}</Text>
-            <View style={styles.tagContainer}>
-              <View style={styles.tag}>
-                <Text style={[theme.typography.caption, styles.tagText]}>{experience}</Text>
+          <View style={[{flexDirection: 'row', flex: 1, justifyContent: 'space-between'}]}>
+            <View>
+              <View style={styles.tagContainer}>
+                <View style={styles.tag}>
+                  <FontAwesome6 name="suitcase" size={12} color={theme.colors.customGreen[200]} />
+                  <Text style={[theme.typography.caption, styles.tagText]}>
+                    {safeExperience} tahun
+                  </Text>
+                </View>
+                <View style={styles.tag}>
+                  <FontAwesome6 name="location-dot" size={12} color={theme.colors.customGreen[200]} />
+                  <Text style={[theme.typography.caption, styles.tagText]}>
+                    {safeCity}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.tag}>
-                <Text style={[theme.typography.caption, styles.tagText]}>Portofolio</Text>
+              <View style={styles.priceInfo}>
+                <Text style={[theme.typography.caption, styles.priceText]}>
+                  Chat: Rp{safeRateOnline}rb/sesi
+                </Text>
+                <Text style={[theme.typography.caption, styles.priceText]}>
+                  Tatap muka: Rp{safeRateOffline}rb/sesi
+                </Text>
               </View>
-              <View style={styles.tag}>
-                <Text style={[theme.typography.caption, styles.tagText]}>{location}</Text>
+              <View style={styles.actionButtons}>
+                <Button
+                  title="Portfolio"
+                  icon={<MaterialIcons name="link" size={8} color={theme.colors.customGreen[400]} />}
+                  variant="outline"
+                  onPress={() => handlePortfolioPress(portfolio)}
+                  minHeight={20}
+                  minWidth={80}
+                  paddingVertical={2}
+                  paddingHorizontal={10}
+                  textStyle={[theme.typography.caption]}
+                  disabled={!hasValidPortfolio}
+                />
               </View>
             </View>
-            <View style={styles.priceInfo}>
-              <Text style={[theme.typography.caption, styles.priceText]}>
-                chat: {chatPrice}k/sesi
-              </Text>
-              <Text style={[theme.typography.caption, styles.priceText]}>
-                tatap muka: {meetingPrice}k/sesi
-              </Text>
+            <View style={styles.arrowContainer}>
+              <MaterialIcons name="chevron-right" size={24} color={theme.colors.customGreen[400]} />
             </View>
           </View>
         </View>
-        
-        <View style={styles.actionButtons}>
-          <Button
-            title="lihat chat"
-            variant="outline"
-            onPress={onChatPress}
-            minHeight={32}
-            minWidth={80}
-            paddingVertical={6}
-            paddingHorizontal={12}
-            textStyle={[theme.typography.caption, styles.buttonText]}
-          />
-        </View>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -111,25 +184,26 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.customWhite[50],
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-    position: 'relative',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+    shadowColor: theme.colors.customGray[200],
+    elevation: 6,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  statusContainer: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 1,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems:'center',
+    flex: 1,
   },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
+    marginBottom: 4,
     paddingHorizontal: 8,
     borderRadius: 16,
   },
@@ -139,23 +213,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 6,
   },
-  content: {
-    marginTop: 0,
-  },
-  contentWithStatus: {
-    marginTop: 20,
-  },
-  profileSection: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  profileImageContainer: {
-    marginRight: 12,
-  },
-  profileImage: {
+  photo: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 50,
+    marginRight: 12,
+    alignSelf: 'flex-start'
   },
   placeholderImage: {
     width: 60,
@@ -165,42 +228,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.customGray[100],
   },
-  profileInfo: {
-    flex: 1,
-  },
   name: {
     color: theme.colors.customOlive[50],
-    marginBottom: 6,
+    marginBottom: 4,
   },
   tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 6,
+    gap: 8,
   },
   tag: {
-    backgroundColor: theme.colors.customGray[50],
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.customWhite[100],
+    borderRadius: 16,
     paddingVertical: 2,
-    paddingHorizontal: 8,
-    marginRight: 6,
-    marginBottom: 4,
+    paddingHorizontal: 6,
+    marginVertical: 4,
+    elevation: 1,
   },
   tagText: {
-    color: theme.colors.customOlive[50],
-    fontSize: 10,
+    marginLeft: 6,
+    color: theme.colors.customGreen[200],
+    fontWeight: '100',
+    fontFamily: 'poppins',
+    fontSize: 12
   },
   priceInfo: {
     marginTop: 4,
   },
   priceText: {
     color: theme.colors.customOlive[50],
-    fontSize: 10,
+    fontSize: 11
   },
   actionButtons: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+    marginTop: 8,
   },
-  buttonText: {
-    fontSize: 10,
+  arrowContainer: {
+    justifyContent: 'center',
   },
 });
 

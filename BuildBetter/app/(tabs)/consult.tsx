@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from '../theme';
 import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
@@ -13,29 +13,29 @@ import { useAuth } from '@/context/AuthContext';
 const mockArchitects = [
   {
     id: '1',
-    name: 'Erensa Ratu Chelsia',
-    experience: '10 tahun',
-    location: 'Kota Bandung',
-    chatPrice: 30,
-    meetingPrice: 100,
+    username: 'Erensa Ratu Chelsia',
+    experience: 10,
+    city: 'Kota Bandung',
+    rateOnline: 30,
+    rateOffline: 100,
     status: 'Dijadwalkan' as ArchitectStatus,
   },
   {
     id: '2',
-    name: 'Ahmad Prasetyo',
-    experience: '8 tahun',
-    location: 'Jakarta',
-    chatPrice: 35,
-    meetingPrice: 120,
+    username: 'Ahmad Prasetyo',
+    experience: 8,
+    city: 'Jakarta',
+    rateOnline: 35,
+    rateOffline: 120,
     status: 'Berlangsung' as ArchitectStatus,
   },
   {
     id: '3',
-    name: 'Sari Indah',
-    experience: '12 tahun',
-    location: 'Surabaya',
-    chatPrice: 40,
-    meetingPrice: 150,
+    username: 'Sari Indah',
+    experience: 12,
+    city: 'Surabaya',
+    rateOnline: 40,
+    rateOffline: 150,
     status: 'Berakhir' as ArchitectStatus,
   },
 ];
@@ -58,8 +58,8 @@ export default function BuildConsultPage() {
       setArchitects(mockArchitects);
     } else {
       const filtered = mockArchitects.filter(architect =>
-        architect.name.toLowerCase().includes(query.toLowerCase()) ||
-        architect.location.toLowerCase().includes(query.toLowerCase())
+        architect.username.toLowerCase().includes(query.toLowerCase()) ||
+        architect.city.toLowerCase().includes(query.toLowerCase())
       );
       setArchitects(filtered);
     }
@@ -124,7 +124,7 @@ export default function BuildConsultPage() {
 
         <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)}>
           <View style={styles.chatIconContainer}>
-            <MaterialIcons name="add" size={24} color={theme.colors.customWhite[50]} />
+            <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
           </View>
         </TouchableOpacity>
       </View>
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: theme.colors.customOlive[50],
+    backgroundColor: theme.colors.customGreen[300],
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   infoChip: {
-    backgroundColor: theme.colors.customGray[50],
+    backgroundColor: theme.colors.customWhite[100],
     borderRadius: 12,
     padding: 12,
     marginTop: 8,
