@@ -13,6 +13,7 @@ export interface LoginResponse {
     email: string;
     role: string;
     username: string;
+    city: string;
   };
   error?: string;
 }
@@ -313,6 +314,7 @@ export const authApi = {
     await SecureStore.setItemAsync('userEmail', data.email);
     await SecureStore.setItemAsync('userRole', data.role);
     await SecureStore.setItemAsync('username', data.username);
+    await SecureStore.setItemAsync('city', data.city);
   },
  
   // Clear authentication data
@@ -322,6 +324,7 @@ export const authApi = {
     await SecureStore.deleteItemAsync('userEmail');
     await SecureStore.deleteItemAsync('userRole');
     await SecureStore.deleteItemAsync('username');
+    await SecureStore.deleteItemAsync('city');
   },
 
   // Get user profile

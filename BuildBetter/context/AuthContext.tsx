@@ -10,6 +10,7 @@ type User = {
   email?: string;
   username?: string;
   role?: string;
+  city?: string;
 } | null;
 
 type AuthContextType = {
@@ -40,8 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const email = await SecureStore.getItemAsync('userEmail') || undefined;
           const role = await SecureStore.getItemAsync('userRole') || undefined;
           const username = await SecureStore.getItemAsync('username') || undefined;
+          const city = await SecureStore.getItemAsync('city') || undefined;
          
-          setUser({ userId, email, username, role });
+          setUser({ userId, email, username, role, city });
           setIsAuthenticated(true);
         }
       } catch (error) {
@@ -66,7 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userId: response.data.userId,
         email: response.data.email,
         username: response.data.username,
-        role: response.data.role
+        role: response.data.role,
+        city: response.data.city
       });
       setIsAuthenticated(true);
     }

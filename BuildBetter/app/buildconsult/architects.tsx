@@ -1,74 +1,101 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import theme from '../theme';
 import Textfield from '@/component/Textfield';
 import ArchitectCard from '@/component/ArchitectCard';
+import MultiSelectDrawer from '@/component/MultiSelectDrawer';
 import { useAuth } from '@/context/AuthContext';
 import { buildconsultApi, Architect } from '@/services/api';
 import * as SecureStore from 'expo-secure-store';
+import locationData from '@/data/location.json';
+
+// Extract all cities from the location data
+const getAllCities = () => {
+  const cities: string[] = [];
+  locationData.provinces.forEach(province => {
+    province.cities.forEach(city => {
+      cities.push(city.label);
+    });
+  });
+  return cities.sort(); // Sort alphabetically for better UX
+};
 
 export default function Architects() {
   const router = useRouter();
   const { user } = useAuth();
-  const name = user?.username;
+  const city = user?.city;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [architects, setArchitects] = useState<Architect[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-    const [filteredArchitects, setFilteredArchitects] = useState<Architect[]>(architects);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [isCityDrawerVisible, setCityDrawerVisible] = useState(false);
 
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredArchitects(architects);
-    } else {
-      const filtered = architects.filter((architect: Architect) =>
+  // Get all available cities from location data
+  const cityOptions = getAllCities();
+
+  // Filter architects based on search query and selected cities
+  const filteredArchitects = useMemo(() => {
+    let filtered = architects;
+
+    // Apply city filter
+    if (selectedCities.length > 0) {
+      filtered = filtered.filter((architect: Architect) =>
+        selectedCities.includes(architect.city)
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      filtered = filtered.filter((architect: Architect) =>
         architect.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         architect.city.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredArchitects(filtered);
     }
-  }, [searchQuery]);
+
+    return filtered;
+  }, [architects, searchQuery, selectedCities]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
   useEffect(() => {
-      fetchArchitects();
-    }, []);
-  
-    const fetchArchitects = async () => {
-      try {
-        setLoading(true);
-        
-        // Check if user is logged in by verifying token exists
-        const token = await SecureStore.getItemAsync('userToken');
-        if (!token) {
-          setError('Please log in to view architect list.');
-          setLoading(false);
-          return;
-        }
-  
-        const response = await buildconsultApi.getArchitects();
-        
-        if (response.code === 200 && response.data) {
-          setArchitects(response.data);
-          setError(null);
-        } else {
-          setError(response.error || 'Failed to fetch architects');
-          setArchitects([]);
-        }
-      } catch (err) {
-        console.error('Error fetching architects:', err);
-        setError('Network error or server unavailable. Please try again later.');
-        setArchitects([]);
-      } finally {
+    fetchArchitects();
+  }, []);
+
+  const fetchArchitects = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in by verifying token exists
+      const token = await SecureStore.getItemAsync('userToken');
+      if (!token) {
+        setError('Please log in to view architect list.');
         setLoading(false);
+        return;
       }
-    };
+
+      const response = await buildconsultApi.getArchitects();
+      
+      if (response.code === 200 && response.data) {
+        setArchitects(response.data);
+        setError(null);
+      } else {
+        setError(response.error || 'Failed to fetch architects');
+        setArchitects([]);
+      }
+    } catch (err) {
+      console.error('Error fetching architects:', err);
+      setError('Network error or server unavailable. Please try again later.');
+      setArchitects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChatPress = (architectId: string) => {
     // Navigate to chat with architect
@@ -78,6 +105,12 @@ export default function Architects() {
   const handleBooking = (architectId: string) => {
     // Navigate to booking flow
     router.push('/buildconsult/booking');
+  };
+
+  const getCityFilterButtonText = () => {
+    if (selectedCities.length === 0) return "Kota";
+    if (selectedCities.length === 1) return selectedCities[0];
+    return `${selectedCities.length} Kota Terpilih`;
   };
   
   if (loading) {
@@ -98,15 +131,50 @@ export default function Architects() {
           <Text style={[theme.typography.caption, styles.infoChipText]}>
             Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
           </Text>
-          <Textfield
-            icon={<MaterialIcons name="search" size={16}/>}
-            placeholder="Cari arsitek di sini..."
-            paddingVertical={12}
-            borderRadius={100}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
+          
+          <View style={styles.searchAndFilterContainer}>
+            <View style={styles.searchFieldContainer}>
+              <Textfield
+                icon={<MaterialIcons name="search" size={16}/>}
+                placeholder="Cari arsitek di sini..."
+                paddingVertical={12}
+                borderRadius={100}
+                height={50}
+                value={searchQuery}
+                onChangeText={handleSearch}
+              />
+            </View>
+            
+            <Pressable 
+              style={styles.cityFilterButton} 
+              onPress={() => setCityDrawerVisible(true)}
+            >
+              <Text style={styles.cityFilterButtonText} numberOfLines={1}>
+                {getCityFilterButtonText()}
+              </Text>
+              <MaterialIcons 
+                name="keyboard-arrow-down" 
+                size={16} 
+                color={theme.colors.customGreen[300]} 
+              />
+            </Pressable>
+          </View>
         </View>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {filteredArchitects.length === 0 && !error && !loading && (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="search-off" size={64} color={theme.colors.customGray[100]} />
+            <Text style={styles.emptyText}>
+              Tidak ada arsitek yang sesuai dengan kriteria pencarian.
+            </Text>
+          </View>
+        )}
 
         {filteredArchitects.map((architect) => (
           <ArchitectCard
@@ -117,6 +185,16 @@ export default function Architects() {
           />
         ))}
       </ScrollView>
+
+      <MultiSelectDrawer
+        isVisible={isCityDrawerVisible}
+        onClose={() => setCityDrawerVisible(false)}
+        title="Filter by Kota"
+        options={cityOptions}
+        selectedValues={selectedCities}
+        onApply={(values) => setSelectedCities(values as string[])}
+        enableSearch
+      />
     </View>
   );
 }
@@ -147,6 +225,33 @@ const styles = StyleSheet.create({
   infoChipText: {
     color: theme.colors.customOlive[50],
   },
+  searchAndFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  searchFieldContainer: {
+    flex: 1,
+  },
+  cityFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.customWhite[50],
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.customGreen[200],
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  cityFilterButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.customOlive[50],
+    marginRight: 4,
+    textAlign: 'center',
+  },
   infoButton: {
     position: 'absolute',
     top: 8,
@@ -165,5 +270,31 @@ const styles = StyleSheet.create({
   architectList: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  errorContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffebee',
+    marginHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    ...theme.typography.body2,
+    color: '#d32f2f',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    ...theme.typography.body1,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

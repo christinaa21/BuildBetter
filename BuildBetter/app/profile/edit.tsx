@@ -339,7 +339,7 @@ export default function ProfileEdit() {
   };
 
   // Helper function to update SecureStore and AuthContext
-  const updateStoredUserData = async (updatedEmail: string, updatedUsername: string) => {
+  const updateStoredUserData = async (updatedEmail: string, updatedUsername: string, updatedCity: string) => {
     try {
       // Update SecureStore if email or username changed
       if (updatedEmail !== originalData.email) {
@@ -350,12 +350,17 @@ export default function ProfileEdit() {
         await SecureStore.setItemAsync('username', updatedUsername);
       }
 
+      if (updatedCity !== originalData.city) {
+        await SecureStore.setItemAsync('city', updatedCity);
+      }
+
       // Update AuthContext user state
       if (user) {
         const updatedUser = {
           ...user,
           email: updatedEmail,
           username: updatedUsername,
+          city: updatedCity,
         };
         setUser(updatedUser);
       }
@@ -410,7 +415,7 @@ export default function ProfileEdit() {
       
       if (response.code === 200) {
         // Update SecureStore and AuthContext with new email and username
-        await updateStoredUserData(formData.email, formData.username);
+        await updateStoredUserData(formData.email, formData.username, formData.city);
         
         setOriginalData(formData);
         Alert.alert(
