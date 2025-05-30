@@ -19,7 +19,7 @@ const MOCK_HISTORY_DATA: HistoryCardProps[] = [
   { id: '6', orderCreatedAt: '01 Maret 2024', tanggal: '05 Maret 2024', waktu: '11.00 - 12.00', arsitek: 'Andi Wijaya', metode: 'Tatap Muka', kota: 'Semarang', totalPembayaran: 40000, status: 'Dibatalkan', onHubungiLagi: () => console.log('Hubungi Lagi 6') },
 ];
 
-const STATUS_FILTER_OPTIONS: HistoryStatus[] = ['Menunggu konfirmasi', 'Dijadwalkan', 'Berlangsung', 'Berakhir', 'Dibatalkan'];
+const STATUS_FILTER_OPTIONS: HistoryStatus[] = ['Menunggu pembayaran', 'Menunggu konfirmasi', 'Dijadwalkan', 'Berlangsung', 'Berakhir', 'Dibatalkan'];
 const METODE_FILTER_OPTIONS: HistoryMetode[] = ['Chat', 'Tatap Muka'];
 
 // parseConsultationDate and formatDateForDisplay (Same as your last version)

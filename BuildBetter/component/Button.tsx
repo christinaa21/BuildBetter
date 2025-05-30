@@ -48,17 +48,11 @@ const Button: React.FC<ButtonProps> = ({
     return variant === 'primary' ? theme.colors.customWhite[50] : theme.colors.customGreen[300];
   };
 
-  // Get the current text size based on button state
-  const getTextSize = () => {
-    if (disabled) return theme.typography.body1.fontSize;
-    return theme.typography.body1.fontSize + 9;
-  };
-
   // Clone and modify icon with current text color if it exists
   const coloredIcon = icon && React.isValidElement(icon) 
     ? React.cloneElement(icon as React.ReactElement, {
         color: getTextColor(),
-        size: getTextSize(),
+        size: theme.typography.body1.fontSize,
       })
     : icon;
 

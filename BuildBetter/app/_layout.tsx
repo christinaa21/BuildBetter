@@ -151,6 +151,16 @@ export default function RootLayout() {
             headerTitleStyle: theme.typography.title,
           }}
         />
+        <Stack.Screen 
+          name="buildconsult/architects" 
+          options={{
+            headerShown: true,
+            headerTitle: "Pilih Arsitek",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

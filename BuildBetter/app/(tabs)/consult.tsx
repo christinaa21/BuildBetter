@@ -19,12 +19,13 @@ const mockArchitects = [
     rateOnline: 30,
     rateOffline: 100,
     status: 'Dijadwalkan' as ArchitectStatus,
+    portfolio: 'https://issuu.com/erensaratu/docs/architecture_portfolio_by_erensa_ratu_chelsia'
   },
   {
     id: '2',
     username: 'Ahmad Prasetyo',
     experience: 8,
-    city: 'Jakarta',
+    city: 'Kota Jakarta Selatan',
     rateOnline: 35,
     rateOffline: 120,
     status: 'Berlangsung' as ArchitectStatus,
@@ -70,14 +71,13 @@ export default function BuildConsultPage() {
     console.log('Chat with architect:', architectId);
   };
 
-  const handleNewChat = () => {
-    // Navigate to new chat flow
-    router.push('/buildconsult/new-chat');
+  const handleBooking = (architectId: string) => {
+    // Navigate to booking flow
+    router.push('/buildconsult/booking');
   };
 
   const handleConsultNow = () => {
-    // Navigate to consultation booking
-    router.push('/buildconsult/booking');
+    router.push('/buildconsult/architects');
   };
 
   // First time user view
@@ -154,11 +154,12 @@ export default function BuildConsultPage() {
             key={architect.id}
             {...architect}
             onChatPress={() => handleChatPress(architect.id)}
+            onBookPress={() => handleBooking(architect.id)}
           />
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)} activeOpacity={0.4}>
+      <TouchableOpacity style={styles.chatIcon} onPress={handleConsultNow} activeOpacity={0.4}>
           <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
       </TouchableOpacity>
     </View>
@@ -236,7 +237,6 @@ const styles = StyleSheet.create({
   },
   infoChipText: {
     color: theme.colors.customOlive[50],
-    fontSize: 11,
     marginBottom: 2,
   },
   infoButton: {

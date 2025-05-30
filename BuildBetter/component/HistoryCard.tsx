@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import theme from '@/app/theme';
 import Button from './Button';
 
-export type HistoryStatus = 'Menunggu konfirmasi' | 'Dibatalkan' | 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
+export type HistoryStatus = 'Menunggu pembayaran' | 'Menunggu konfirmasi' | 'Dibatalkan' | 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
 export type HistoryMetode = 'Chat' | 'Tatap Muka';
 
 export interface HistoryCardProps {
@@ -28,6 +28,7 @@ interface StatusDisplayProps {
 }
 
 const statusStyles: Record<HistoryStatus, StatusDisplayProps> = {
+  'Menunggu pembayaran': { backgroundColor: '#FEFCE8', dotColor: '#EFB100', textColor: theme.colors.customOlive[50] },
   'Menunggu konfirmasi': { backgroundColor: '#FFF3E0', dotColor: '#FF9800', textColor: theme.colors.customOlive[50] },
   'Dibatalkan': { backgroundColor: '#FFEBEE', dotColor: '#F44336', textColor: theme.colors.customOlive[50] },
   'Dijadwalkan': { backgroundColor: '#CAE1DB', dotColor: theme.colors.customGreen[300], textColor: theme.colors.customOlive[50] },

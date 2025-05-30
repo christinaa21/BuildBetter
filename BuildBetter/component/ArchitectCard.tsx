@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, StyleProp, ViewStyle, Linking } from 'react-native';
 import theme from '@/app/theme';
 import Button from './Button';
-import { FontAwesome6, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 export type ArchitectStatus = 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
 
@@ -18,7 +18,7 @@ export interface ArchitectCardProps {
   photo?: string;
   status?: ArchitectStatus; // Optional - only shown if user has consultation history
   onChatPress?: () => void;
-  onMeetPress?: () => void;
+  onBookPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -87,12 +87,12 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
   status,
   portfolio,
   onChatPress,
-  onMeetPress,
+  onBookPress,
   style,
 }) => {
   // Safe fallbacks for required props
   const safeUsername = truncate(username, 20) || 'Unknown Architect';
-  const safeCity = truncate(city, 15) || 'Unknown City';
+  const safeCity = truncate(city, 24) || 'Unknown City';
   const safeExperience = formatExperience(experience);
   const safeRateOnline = formatRate(rateOnline);
   const safeRateOffline = formatRate(rateOffline);
@@ -105,7 +105,8 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
   return (
     <TouchableOpacity
       style={[styles.card, style]}
-      activeOpacity={0.4}>
+      activeOpacity={0.4}
+      onPress={onChatPress}>
         <Image 
           source={photo && typeof photo === 'string' && photo.trim() !== '' 
             ? { uri: photo } 
@@ -132,49 +133,71 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
               </View>
             )}
           </View>
-          <View style={[{flexDirection: 'row', flex: 1, justifyContent: 'space-between'}]}>
-            <View>
-              <View style={styles.tagContainer}>
-                <View style={styles.tag}>
-                  <FontAwesome6 name="suitcase" size={12} color={theme.colors.customGreen[200]} />
-                  <Text style={[theme.typography.caption, styles.tagText]}>
-                    {safeExperience} tahun
-                  </Text>
-                </View>
-                <View style={styles.tag}>
-                  <FontAwesome6 name="location-dot" size={12} color={theme.colors.customGreen[200]} />
-                  <Text style={[theme.typography.caption, styles.tagText]}>
-                    {safeCity}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.priceInfo}>
-                <Text style={[theme.typography.caption, styles.priceText]}>
-                  Chat: Rp{safeRateOnline}rb/sesi
-                </Text>
-                <Text style={[theme.typography.caption, styles.priceText]}>
-                  Tatap muka: Rp{safeRateOffline}rb/sesi
+          <View>
+            <View style={styles.tagContainer}>
+              <View style={styles.tag}>
+                <FontAwesome6 name="suitcase" size={10} color={theme.colors.customGreen[200]} />
+                <Text style={[theme.typography.caption, styles.tagText]}>
+                  {safeExperience} tahun
                 </Text>
               </View>
-              <View style={styles.actionButtons}>
+              <View style={styles.tag}>
+                <FontAwesome6 name="location-dot" size={10} color={theme.colors.customGreen[200]} />
+                <Text style={[theme.typography.caption, styles.tagText]}>
+                  {safeCity}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.priceInfo}>
+              <Text style={[theme.typography.caption, styles.priceText]}>
+                Chat: Rp{safeRateOnline}rb/sesi
+              </Text>
+              <Text style={[theme.typography.caption, styles.priceText]}>
+                Tatap muka: Rp{safeRateOffline}rb/sesi
+              </Text>
+            </View>
+            <View style={styles.actionButtons}>
+              <Button
+                title="Portfolio"
+                icon={<MaterialIcons name="link" size={8} color={theme.colors.customGreen[300]} />}
+                variant="outline"
+                onPress={() => handlePortfolioPress(portfolio)}
+                minHeight={20}
+                minWidth={80}
+                paddingVertical={6}
+                paddingHorizontal={10}
+                textStyle={[theme.typography.caption]}
+                disabled={!hasValidPortfolio}
+              />
+              
+              {status && statusStyles[status] ? (
                 <Button
-                  title="Portfolio"
-                  icon={<MaterialIcons name="link" size={8} color={theme.colors.customGreen[400]} />}
-                  variant="outline"
-                  onPress={() => handlePortfolioPress(portfolio)}
+                  title="Lihat Chat"
+                  icon={<MaterialCommunityIcons name="chat" size={8} color={theme.colors.customWhite[50]} />}
+                  variant="primary"
+                  onPress={onChatPress}
                   minHeight={20}
                   minWidth={80}
-                  paddingVertical={2}
+                  paddingVertical={4}
                   paddingHorizontal={10}
                   textStyle={[theme.typography.caption]}
-                  disabled={!hasValidPortfolio}
                 />
-              </View>
+                ) : (
+                <Button
+                  title="Hubungi"
+                  icon={<MaterialCommunityIcons name="chat" size={8} color={theme.colors.customWhite[50]} />}
+                  variant="primary"
+                  onPress={onBookPress}
+                  minHeight={20}
+                  minWidth={80}
+                  paddingVertical={4}
+                  paddingHorizontal={10}
+                  textStyle={[theme.typography.caption]}
+                />
+              )
+            }
             </View>
-            <View style={styles.arrowContainer}>
-              <MaterialIcons name="chevron-right" size={24} color={theme.colors.customGreen[400]} />
-            </View>
-          </View>
+        </View>
         </View>
     </TouchableOpacity>
   );
@@ -235,7 +258,7 @@ const styles = StyleSheet.create({
   tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 4,
   },
   tag: {
     flexDirection: 'row',
@@ -248,7 +271,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tagText: {
-    marginLeft: 6,
+    marginLeft: 4,
     color: theme.colors.customGreen[200],
     fontWeight: '100',
     fontFamily: 'poppins',
@@ -262,8 +285,11 @@ const styles = StyleSheet.create({
     fontSize: 11
   },
   actionButtons: {
-    alignItems: 'flex-start',
-    marginTop: 8,
+    alignItems: 'center',
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 8,
   },
   arrowContainer: {
     justifyContent: 'center',
