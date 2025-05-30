@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { buildconsultApi, Architect } from '@/services/api';
 import * as SecureStore from 'expo-secure-store';
 import locationData from '@/data/location.json';
+import Button from '@/component/Button';
 
 // Extract all cities from the location data
 const getAllCities = () => {
@@ -25,7 +26,7 @@ const getAllCities = () => {
 export default function Architects() {
   const router = useRouter();
   const { user } = useAuth();
-  const city = user?.city;
+  const userCity = user?.city;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [architects, setArchitects] = useState<Architect[]>([]);
@@ -33,9 +34,21 @@ export default function Architects() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [isCityDrawerVisible, setCityDrawerVisible] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Get all available cities from location data
   const cityOptions = getAllCities();
+
+  // Initialize default filter with user's city
+  useEffect(() => {
+    if (isInitialLoad && userCity && cityOptions.includes(userCity)) {
+      setSelectedCities([userCity]);
+      setIsInitialLoad(false);
+    } else if (isInitialLoad) {
+      // If user doesn't have a city or city is not in options, just mark as initialized
+      setIsInitialLoad(false);
+    }
+  }, [userCity, cityOptions, isInitialLoad]);
 
   // Filter architects based on search query and selected cities
   const filteredArchitects = useMemo(() => {
@@ -112,6 +125,11 @@ export default function Architects() {
     if (selectedCities.length === 1) return selectedCities[0];
     return `${selectedCities.length} Kota Terpilih`;
   };
+
+  // Handle city filter changes
+  const handleCityFilterApply = (values: string[]) => {
+    setSelectedCities(values);
+  };
   
   if (loading) {
     return (
@@ -173,6 +191,13 @@ export default function Architects() {
             <Text style={styles.emptyText}>
               Tidak ada arsitek yang sesuai dengan kriteria pencarian.
             </Text>
+            {selectedCities.length > 0 && (
+              <Button
+                title="Hapus Filter Kota"
+                variant="primary"
+                onPress={() => setSelectedCities([])}
+              />
+            )}
           </View>
         )}
 
@@ -192,7 +217,7 @@ export default function Architects() {
         title="Filter by Kota"
         options={cityOptions}
         selectedValues={selectedCities}
-        onApply={(values) => setSelectedCities(values as string[])}
+        onApply={handleCityFilterApply}
         enableSearch
       />
     </View>
@@ -295,6 +320,6 @@ const styles = StyleSheet.create({
     ...theme.typography.body1,
     color: theme.colors.customGray[200],
     textAlign: 'center',
-    marginTop: 16,
+    marginVertical: 16,
   },
 });
