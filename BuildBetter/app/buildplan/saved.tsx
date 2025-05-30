@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, SafeAreaView, Text, ActivityIndicator, Image } from 'react-native';
+import { View, FlatList, StyleSheet, SafeAreaView, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '../theme';
 import { plansApi, PlanWithSuggestion } from '@/services/api';

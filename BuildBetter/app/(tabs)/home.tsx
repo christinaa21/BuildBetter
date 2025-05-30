@@ -92,17 +92,6 @@ export default function HomeScreen() {
     };
   });
 
-  const renderArticleCard = ({ item }: { item: BuildTipArticle }) => (
-    <ArticleCard
-      id={item.id}
-      title={item.title}
-      image={item.image}
-      content={item.content}
-      createdAt={item.createdAt}
-      onPress={() => handleArticlePress(item)}
-    />
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('@/assets/images/house.png')} style={styles.image} resizeMode="cover">

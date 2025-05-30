@@ -193,6 +193,25 @@ export interface ResetPasswordResponse {
   error?: string | string[];
 }
 
+export interface Architect {
+  id: string;
+  username: string;
+  experience: number;
+  city: string;
+  rateOnline: number;
+  rateOffline: number;
+  portfolio?: string;
+  photo?: string;
+}
+
+export interface GetArchitectsResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: Architect[];
+  error?: string;
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -460,6 +479,25 @@ export const plansApi = {
       };
     }
   }
+};
+
+export const buildconsultApi = {
+  // Get all architects
+  getArchitects: async (): Promise<GetArchitectsResponse> => {
+    try {
+      const response = await apiClient.get<GetArchitectsResponse>('/architects');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetArchitectsResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
 };
 
 export default apiClient;

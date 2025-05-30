@@ -164,7 +164,7 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
                 onPress={() => handlePortfolioPress(portfolio)}
                 minHeight={20}
                 minWidth={80}
-                paddingVertical={6}
+                paddingVertical={5}
                 paddingHorizontal={10}
                 textStyle={[theme.typography.caption]}
                 disabled={!hasValidPortfolio}

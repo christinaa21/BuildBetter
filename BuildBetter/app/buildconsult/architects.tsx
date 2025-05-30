@@ -1,66 +1,74 @@
-// app/buildconsult/index.tsx
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import theme from '../theme';
 import Textfield from '@/component/Textfield';
 import ArchitectCard from '@/component/ArchitectCard';
 import { useAuth } from '@/context/AuthContext';
-
-// Mock data for architects
-const mockArchitects = [
-  {
-    id: '1',
-    username: 'Erensa Ratu Chelsia',
-    experience: 10,
-    city: 'Kota Bandung',
-    rateOnline: 30,
-    rateOffline: 100,
-    portfolio: 'https://issuu.com/erensaratu/docs/architecture_portfolio_by_erensa_ratu_chelsia'
-  },
-  {
-    id: '2',
-    username: 'Ahmad Prasetyo',
-    experience: 8,
-    city: 'Kota Jakarta Selatan',
-    rateOnline: 35,
-    rateOffline: 120,
-  },
-  {
-    id: '3',
-    username: 'Sari Indah',
-    experience: 12,
-    city: 'Surabaya',
-    rateOnline: 40,
-    rateOffline: 150,
-  },
-];
+import { buildconsultApi, Architect } from '@/services/api';
+import * as SecureStore from 'expo-secure-store';
 
 export default function Architects() {
   const router = useRouter();
   const { user } = useAuth();
   const name = user?.username;
   
-  // State to determine if user has consultation history
-  // In real app, this would come from API/database
-  const [hasConsultationHistory, setHasConsultationHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [architects, setArchitects] = useState(mockArchitects);
+  const [architects, setArchitects] = useState<Architect[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+    const [filteredArchitects, setFilteredArchitects] = useState<Architect[]>(architects);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredArchitects(architects);
+    } else {
+      const filtered = architects.filter((architect: Architect) =>
+        architect.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        architect.city.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredArchitects(filtered);
+    }
+  }, [searchQuery]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Filter architects based on search query
-    if (query.trim() === '') {
-      setArchitects(mockArchitects);
-    } else {
-      const filtered = mockArchitects.filter(architect =>
-        architect.username.toLowerCase().includes(query.toLowerCase()) ||
-        architect.city.toLowerCase().includes(query.toLowerCase())
-      );
-      setArchitects(filtered);
-    }
   };
+
+  useEffect(() => {
+      fetchArchitects();
+    }, []);
+  
+    const fetchArchitects = async () => {
+      try {
+        setLoading(true);
+        
+        // Check if user is logged in by verifying token exists
+        const token = await SecureStore.getItemAsync('userToken');
+        if (!token) {
+          setError('Please log in to view architect list.');
+          setLoading(false);
+          return;
+        }
+  
+        const response = await buildconsultApi.getArchitects();
+        
+        if (response.code === 200 && response.data) {
+          setArchitects(response.data);
+          setError(null);
+        } else {
+          setError(response.error || 'Failed to fetch architects');
+          setArchitects([]);
+        }
+      } catch (err) {
+        console.error('Error fetching architects:', err);
+        setError('Network error or server unavailable. Please try again later.');
+        setArchitects([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const handleChatPress = (architectId: string) => {
     // Navigate to chat with architect
@@ -71,8 +79,17 @@ export default function Architects() {
     // Navigate to booking flow
     router.push('/buildconsult/booking');
   };
+  
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  // Returning user view with search and architect list
   return (
     <View style={styles.container}>
       <ScrollView style={styles.architectList} showsVerticalScrollIndicator={false}>
@@ -91,7 +108,7 @@ export default function Architects() {
           />
         </View>
 
-        {architects.map((architect) => (
+        {filteredArchitects.map((architect) => (
           <ArchitectCard
             key={architect.id}
             {...architect}
@@ -105,11 +122,19 @@ export default function Architects() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.customWhite[50],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
   },
-  // Returning user styles
   searchContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
