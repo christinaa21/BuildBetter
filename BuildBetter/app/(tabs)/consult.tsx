@@ -123,9 +123,7 @@ export default function BuildConsultPage() {
         </View>
 
         <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)}>
-          <View style={styles.chatIconContainer}>
             <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
-          </View>
         </TouchableOpacity>
       </View>
     );
@@ -160,10 +158,8 @@ export default function BuildConsultPage() {
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)}>
-        <View style={styles.chatIconContainer}>
+      <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)} activeOpacity={0.4}>
           <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
-        </View>
       </TouchableOpacity>
     </View>
   );
@@ -215,11 +211,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-  },
-  chatIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 56,
     backgroundColor: theme.colors.customGreen[300],
     justifyContent: 'center',
     alignItems: 'center',

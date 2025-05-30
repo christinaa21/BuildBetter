@@ -141,6 +141,16 @@ export default function RootLayout() {
             headerTitleStyle: theme.typography.title,
           }}
         />
+        <Stack.Screen 
+          name="buildtips/[id]/index" 
+          options={{
+            headerShown: true,
+            headerTitle: "BuildTips",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

@@ -1,6 +1,9 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, SafeAreaView, Dimensions, ImageBackground } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, StyleSheet, SafeAreaView, Dimensions, ImageBackground, ScrollView } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import Button from '@/component/Button';
+import Textfield from '@/component/Textfield';
+import ArticleCard from '@/component/ArticleCard';
 import { theme } from '@/app/theme';
 import { Link, useRouter } from 'expo-router';
 import Animated, { 
@@ -12,9 +15,18 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useAuth } from '@/context/AuthContext';
+import { buildTipsData } from '@/data/buildtips';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_TRANSLATE_Y = -SCREEN_HEIGHT + 0.45*SCREEN_HEIGHT;
+
+interface BuildTipArticle {
+  id: string;
+  title: string;
+  image: string;
+  content: string;
+  createdAt: string;
+}
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -22,8 +34,34 @@ export default function HomeScreen() {
   const router = useRouter();
   const translateY = useSharedValue(0);
   const context = useSharedValue({ y: 0 });
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filteredArticles, setFilteredArticles] = useState<BuildTipArticle[]>(buildTipsData);
 
-  const gesture = Gesture.Pan()
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredArticles(buildTipsData);
+    } else {
+      const filtered = buildTipsData.filter((article: BuildTipArticle) =>
+        article.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredArticles(filtered);
+    }
+  }, [searchQuery]);
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const handleArticlePress = (article: BuildTipArticle) => {
+    // Navigate to article detail page
+    router.push({
+      pathname: '../buildtips/article',
+      params: { articleId: article.id }
+    });
+  };
+
+  // Gesture for the drawer handle only
+  const drawerGesture = Gesture.Pan()
     .onStart(() => {
       context.value = { y: translateY.value };
     })
@@ -54,6 +92,17 @@ export default function HomeScreen() {
     };
   });
 
+  const renderArticleCard = ({ item }: { item: BuildTipArticle }) => (
+    <ArticleCard
+      id={item.id}
+      title={item.title}
+      image={item.image}
+      content={item.content}
+      createdAt={item.createdAt}
+      onPress={() => handleArticlePress(item)}
+    />
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('@/assets/images/house.png')} style={styles.image} resizeMode="cover">
@@ -79,20 +128,48 @@ export default function HomeScreen() {
         </View>
       </ImageBackground>
 
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.buildTips, rBottomSheetStyle]}>
-          <View style={styles.drawerHandle} />
-          <Text style={[theme.typography.title, styles.buildTipsTitle]}>BuildTips</Text>
-          <Text style={[theme.typography.body2, styles.buildTipsDescription]}>
-            Yuk cari tahu lebih banyak tentang persiapan pembangunan dan renovasi rumah!
-          </Text>
-          <Image
-            source={require('@/assets/images/buildtips.png')}
-            style={styles.buildTipsImage}
-            resizeMode="cover"
-          />
-        </Animated.View>
-      </GestureDetector>
+      <Animated.View style={[styles.buildTips, rBottomSheetStyle]}>
+        {/* Expanded pan gesture area including header content */}
+        <GestureDetector gesture={drawerGesture}>
+          <View style={styles.drawerHeaderArea}>
+            <View style={styles.drawerHandle} />
+            <Text style={[theme.typography.title, styles.buildTipsTitle]}>BuildTips</Text>
+            
+            <View style={styles.searchContainer}>
+              <Textfield
+                icon={<MaterialIcons name="search" size={16}/>}
+                placeholder="Cari artikel di sini..."
+                value={searchQuery}
+                onChangeText={handleSearch}
+                paddingVertical={12}
+                borderRadius={100}
+              />
+            </View>
+
+            <Text style={[theme.typography.body2, styles.buildTipsDescription]}>
+              Yuk cari tahu lebih banyak tentang persiapan pembangunan dan renovasi rumah!
+            </Text>
+          </View>
+        </GestureDetector>
+
+        <ScrollView 
+          style={styles.articlesList}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.articlesContainer}
+        >
+          {filteredArticles.map((item) => (
+            <ArticleCard
+              key={item.id}
+              id={item.id}
+              title={item.title}
+              image={item.image}
+              content={item.content}
+              createdAt={item.createdAt}
+              onPress={() => handleArticlePress(item)}
+            />
+          ))}
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -144,6 +221,10 @@ const styles = StyleSheet.create({
     top: 0.55*SCREEN_HEIGHT,
     paddingTop: 16,
     paddingHorizontal: 20,
+    paddingBottom: 50
+  },
+  drawerHeaderArea: {
+    paddingBottom: 8,
   },
   drawerHandle: {
     width: 75,
@@ -155,15 +236,19 @@ const styles = StyleSheet.create({
   },
   buildTipsTitle: {
     color: theme.colors.customOlive[50],
-    marginBottom: 16,
+    marginBottom: 2,
+  },
+  searchContainer: {
+    marginBottom: 4,
   },
   buildTipsDescription: {
     color: theme.colors.customOlive[50],
-    marginBottom: 16,
   },
-  buildTipsImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: 16,
+  articlesContainer: {
+    paddingBottom: 24,
+  },
+  articlesList: {
+    flex: 1,
+    marginTop: 8,
   },
 });

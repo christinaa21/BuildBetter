@@ -31,6 +31,7 @@ interface TextfieldProps extends TextInputProps {
   onValidation?: (isValid: boolean) => void;
   height?: number;
   paddingVertical?: number;
+  borderRadius?: number;
 }
 
 const Textfield: React.FC<TextfieldProps> = ({
@@ -44,6 +45,7 @@ const Textfield: React.FC<TextfieldProps> = ({
   onChangeText,
   height,
   paddingVertical,
+  borderRadius = 16,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -164,7 +166,7 @@ const Textfield: React.FC<TextfieldProps> = ({
       <Animated.View
         style={[
           styles.inputContainer,
-          { borderColor: getBorderColor(), height: height },
+          { borderColor: getBorderColor(), height: height, borderRadius: borderRadius },
         ]}
       >
         {icon && (
