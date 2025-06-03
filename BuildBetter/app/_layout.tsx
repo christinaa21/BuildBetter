@@ -161,6 +161,16 @@ export default function RootLayout() {
             headerTitleStyle: theme.typography.title,
           }}
         />
+        <Stack.Screen 
+          name="buildconsult/booking" 
+          options={{
+            headerShown: true,
+            headerTitle: "Booking Konsultasi",
+            headerTintColor: theme.colors.customGreen[300],
+            headerTitleAlign: 'center',
+            headerTitleStyle: theme.typography.title,
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

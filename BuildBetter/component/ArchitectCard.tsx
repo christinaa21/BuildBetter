@@ -62,11 +62,12 @@ const handlePortfolioPress = (portfolio: string | undefined) => {
 };
 
 // Helper function to safely format numbers
-const formatRate = (rate: number | null | undefined): string => {
-  if (rate === null || rate === undefined || isNaN(rate)) {
-    return '0';
-  }
-  return Math.max(0, rate).toString();
+const formatRate = (rate: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(rate);
 };
 
 // Helper function to safely format experience
@@ -150,10 +151,10 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
             </View>
             <View style={styles.priceInfo}>
               <Text style={[theme.typography.caption, styles.priceText]}>
-                Chat: Rp{safeRateOnline}rb/sesi
+                Chat: {safeRateOnline}/sesi
               </Text>
               <Text style={[theme.typography.caption, styles.priceText]}>
-                Tatap muka: Rp{safeRateOffline}rb/sesi
+                Tatap muka: {safeRateOffline}/sesi
               </Text>
             </View>
             <View style={styles.actionButtons}>
