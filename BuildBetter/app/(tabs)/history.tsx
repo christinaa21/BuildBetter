@@ -1,74 +1,166 @@
 // screens/History.tsx
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Platform, Pressable, Modal, ScrollView } from 'react-native'; // Added ScrollView
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Platform, Pressable, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { MaterialIcons } from '@expo/vector-icons'; // Or from 'react-native-vector-icons'
+import { MaterialIcons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import theme from '@/app/theme';
 import HistoryCard, { HistoryCardProps, HistoryStatus, HistoryMetode } from '@/component/HistoryCard';
 import MultiSelectDrawer from '@/component/MultiSelectDrawer';
 import Button from '@/component/Button';
+import { buildconsultApi, Architect } from '@/services/api';
 
-// --- Mock Data --- (Same as your last version)
-const MOCK_HISTORY_DATA: HistoryCardProps[] = [
-  { id: '1', orderCreatedAt: '28 Maret 2024', tanggal: '01 April 2024', waktu: '09.00 - 11.00', arsitek: 'Erensa Ratu', metode: 'Chat', kota: 'Surabaya', totalPembayaran: 30000, status: 'Berlangsung', onHubungiLagi: () => console.log('Hubungi Lagi 1') },
-  { id: '2', orderCreatedAt: '15 Februari 2024', tanggal: '20 Februari 2024', waktu: '14.00 - 15.00', arsitek: 'Erensa Ratu', metode: 'Tatap Muka', kota: 'Jakarta Pusat', totalPembayaran: 30000, status: 'Berakhir', onHubungiLagi: () => console.log('Hubungi Lagi 2') },
-  { id: '3', orderCreatedAt: '01 Januari 2024', tanggal: '03 Januari 2024', waktu: '10.00 - 12.00', arsitek: 'Yuni Ariefah', metode: 'Chat', kota: 'Bandung', totalPembayaran: 15000, status: 'Berakhir', onHubungiLagi: () => console.log('Hubungi Lagi 3') },
-  { id: '4', orderCreatedAt: '10 Mei 2024', tanggal: '15 Mei 2024', waktu: '13.00 - 14.00', arsitek: 'Budi Santoso', metode: 'Tatap Muka', kota: 'Jakarta Barat', totalPembayaran: 50000, status: 'Menunggu konfirmasi', onHubungiLagi: () => console.log('Hubungi Lagi 4') },
-  { id: '5', orderCreatedAt: '01 Juni 2024', tanggal: '10 Juni 2024', waktu: '16.00 - 17.00', arsitek: 'Citra Lestari', metode: 'Chat', kota: 'Yogyakarta', totalPembayaran: 25000, status: 'Dijadwalkan', onHubungiLagi: () => console.log('Hubungi Lagi 5') },
-  { id: '6', orderCreatedAt: '01 Maret 2024', tanggal: '05 Maret 2024', waktu: '11.00 - 12.00', arsitek: 'Andi Wijaya', metode: 'Tatap Muka', kota: 'Semarang', totalPembayaran: 40000, status: 'Dibatalkan', onHubungiLagi: () => console.log('Hubungi Lagi 6') },
-];
+// Define consultation types based on API response
+interface Consultation {
+  id: string;
+  userId: string;
+  architectId: string;
+  roomId: string | null;
+  type: 'online' | 'offline';
+  total: number;
+  status: 'waiting-for-payment' | 'waiting-for-confirmation' | 'cancelled' | 'scheduled' | 'in-progress' | 'ended';
+  reason: string | null;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+interface ConsultationWithArchitect extends Consultation {
+  architect: Architect;
+}
 
 const STATUS_FILTER_OPTIONS: HistoryStatus[] = ['Menunggu pembayaran', 'Menunggu konfirmasi', 'Dijadwalkan', 'Berlangsung', 'Berakhir', 'Dibatalkan'];
 const METODE_FILTER_OPTIONS: HistoryMetode[] = ['Chat', 'Tatap Muka'];
 
-// parseConsultationDate and formatDateForDisplay (Same as your last version)
+// Helper functions for mapping API data to display format
+const mapApiStatusToDisplayStatus = (apiStatus: string): HistoryStatus => {
+  switch (apiStatus) {
+    case 'waiting-for-payment':
+      return 'Menunggu pembayaran';
+    case 'waiting-for-confirmation':
+      return 'Menunggu konfirmasi';
+    case 'scheduled':
+      return 'Dijadwalkan';
+    case 'in-progress':
+      return 'Berlangsung';
+    case 'ended':
+      return 'Berakhir';
+    case 'cancelled':
+      return 'Dibatalkan';
+    default:
+      return 'Berakhir';
+  }
+};
+
+const mapApiTypeToDisplayMetode = (apiType: string): HistoryMetode => {
+  return apiType === 'online' ? 'Chat' : 'Tatap Muka';
+};
+
+const formatApiDateToIndonesian = (isoDateString: string): string => {
+  const date = new Date(isoDateString);
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  
+  return `${day.toString().padStart(2, '0')} ${month} ${year}`;
+};
+
+const formatApiTimeRange = (startDate: string, endDate: string): string => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('id-ID', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+  
+  return `${formatTime(start)} - ${formatTime(end)}`;
+};
+
+const convertConsultationToHistoryCard = (consultation: ConsultationWithArchitect): HistoryCardProps => {
+  return {
+    id: consultation.id,
+    orderCreatedAt: formatApiDateToIndonesian(consultation.createdAt),
+    tanggal: formatApiDateToIndonesian(consultation.startDate),
+    waktu: formatApiTimeRange(consultation.startDate, consultation.endDate),
+    arsitek: consultation.architect.username,
+    metode: mapApiTypeToDisplayMetode(consultation.type),
+    kota: consultation.architect.city,
+    totalPembayaran: consultation.total,
+    status: mapApiStatusToDisplayStatus(consultation.status),
+    onHubungiLagi: () => console.log('Hubungi Lagi', consultation.id)
+  };
+};
+
+// Date parsing functions (updated for Indonesian format)
 const parseConsultationDate = (dateString: string): Date | null => {
-    const months: { [key: string]: number } = {
-        'Januari': 0, 'Februari': 1, 'Maret': 2, 'April': 3, 'Mei': 4, 'Juni': 5,
-        'Juli': 6, 'Agustus': 7, 'September': 8, 'Oktober': 9, 'November': 10, 'Desember': 11
-    };
-    const parts = dateString.split(' ');
-    if (parts.length === 3) {
-        const day = parseInt(parts[0], 10);
-        const monthName = parts[1];
-        const year = parseInt(parts[2], 10);
-        const month = months[monthName];
-        if (!isNaN(day) && month !== undefined && !isNaN(year)) {
-            return new Date(year, month, day);
-        }
+  const months: { [key: string]: number } = {
+    'Januari': 0, 'Februari': 1, 'Maret': 2, 'April': 3, 'Mei': 4, 'Juni': 5,
+    'Juli': 6, 'Agustus': 7, 'September': 8, 'Oktober': 9, 'November': 10, 'Desember': 11
+  };
+  const parts = dateString.split(' ');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const monthName = parts[1];
+    const year = parseInt(parts[2], 10);
+    const month = months[monthName];
+    if (!isNaN(day) && month !== undefined && !isNaN(year)) {
+      return new Date(year, month, day);
     }
-    console.warn(`Failed to parse date: ${dateString}`);
-    return null;
+  }
+  console.warn(`Failed to parse date: ${dateString}`);
+  return null;
 };
 
 const formatDateForDisplay = (date: Date | null): string => {
-    if (!date) return "Pilih";
-    const day = date.getDate();
-    const year = date.getFullYear();
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-                        "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-    return `${day} ${monthNames[date.getMonth()]} ${year}`;
+  if (!date) return "Pilih";
+  const day = date.getDate();
+  const year = date.getFullYear();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+                      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return `${day} ${monthNames[date.getMonth()]} ${year}`;
 };
 
 export default function History() {
-  const [historyData, setHistoryData] = useState<HistoryCardProps[]>(MOCK_HISTORY_DATA);
+  // State for API data
+  const [consultations, setConsultations] = useState<ConsultationWithArchitect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for filtering
   const [selectedStatuses, setSelectedStatuses] = useState<HistoryStatus[]>([]);
   const [selectedMetodes, setSelectedMetodes] = useState<HistoryMetode[]>([]);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  
+  // State for UI
   const [isDateFilterModalVisible, setDateFilterModalVisible] = useState(false);
   const [isStartDatePickerVisible, setStartDatePickerVisibility] = useState(false);
   const [isEndDatePickerVisible, setEndDatePickerVisibility] = useState(false);
   const [isStatusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const [isMetodeDrawerVisible, setMetodeDrawerVisible] = useState(false);
 
+  // Convert consultations to history card format
+  const historyData = useMemo(() => {
+    return consultations.map(convertConsultationToHistoryCard);
+  }, [consultations]);
+
+  // Filter history data
   const filteredHistory = useMemo(() => {
     return historyData.filter(item => {
       if (selectedStatuses.length > 0 && !selectedStatuses.includes(item.status)) return false;
       if (selectedMetodes.length > 0 && !selectedMetodes.includes(item.metode)) return false;
       const consultationItemDate = parseConsultationDate(item.tanggal);
-      if (!consultationItemDate) return true; // Keep item if date parsing fails, or handle as error
+      if (!consultationItemDate) return true;
       if (startDate) {
         const filterStartDate = new Date(startDate);
         filterStartDate.setHours(0,0,0,0);
@@ -83,7 +175,85 @@ export default function History() {
     });
   }, [historyData, selectedStatuses, selectedMetodes, startDate, endDate]);
 
-  // Date handling functions (Same as your last version)
+  // Fetch consultation history from API
+  useEffect(() => {
+    fetchConsultationHistory();
+  }, []);
+
+  const fetchConsultationHistory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if user is logged in
+      const token = await SecureStore.getItemAsync('userToken');
+      if (!token) {
+        setError('Please log in to view consultation history.');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch consultations
+      const consultationResponse = await buildconsultApi.getConsultations();
+      
+      if (consultationResponse.code !== 200 || !consultationResponse.data) {
+        setError(consultationResponse.error || 'Failed to fetch consultation history');
+        setLoading(false);
+        return;
+      }
+
+      const consultationsData: Consultation[] = consultationResponse.data;
+
+      // If no consultations found
+      if (consultationsData.length === 0) {
+        setConsultations([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch architects to match with consultations
+      const architectResponse = await buildconsultApi.getArchitects();
+      
+      if (architectResponse.code !== 200 || !architectResponse.data) {
+        setError(architectResponse.error || 'Failed to fetch architect data');
+        setLoading(false);
+        return;
+      }
+
+      const architectsData: Architect[] = architectResponse.data;
+
+      // Create a map for quick architect lookup
+      const architectMap = new Map<string, Architect>();
+      architectsData.forEach(architect => {
+        architectMap.set(architect.id, architect);
+      });
+
+      // Combine consultation data with architect data
+      const consultationsWithArchitects: ConsultationWithArchitect[] = consultationsData
+        .map(consultation => {
+          const architect = architectMap.get(consultation.architectId);
+          if (architect) {
+            return {
+              ...consultation,
+              architect
+            };
+          }
+          return null;
+        })
+        .filter((item): item is ConsultationWithArchitect => item !== null)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setConsultations(consultationsWithArchitects);
+
+    } catch (err) {
+      console.error('Error fetching consultation history:', err);
+      setError('Network error or server unavailable. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Date handling functions
   const showStartDatePicker = () => setStartDatePickerVisibility(true);
   const hideStartDatePicker = () => setStartDatePickerVisibility(false);
   const handleStartDateConfirm = (date: Date) => {
@@ -129,6 +299,26 @@ export default function History() {
     </View>
   );
 
+  const renderError = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialIcons name="error-outline" size={64} color={theme.colors.customGray[100]} />
+      <Text style={styles.emptyText}>{error}</Text>
+      <Button
+        title="Coba Lagi"
+        variant="primary"
+        onPress={fetchConsultationHistory}
+        style={{ marginTop: 16 }}
+      />
+    </View>
+  );
+
+  const renderLoading = () => (
+    <View style={styles.emptyContainer}>
+      <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+      <Text style={[styles.emptyText, { marginTop: 16 }]}>Memuat riwayat konsultasi...</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.headerContainer}>
@@ -153,7 +343,6 @@ export default function History() {
                 <Text style={styles.filterButtonText} numberOfLines={1}>{getMultiSelectButtonText(selectedMetodes, "Metode")}</Text>
                 <MaterialIcons name="keyboard-arrow-down" size={18} color={theme.colors.customGreen[300]} />
             </Pressable>
-            {/* Add more filters here if needed, they will scroll */}
         </ScrollView>
       </View>
 
@@ -162,10 +351,12 @@ export default function History() {
         renderItem={({ item }) => <HistoryCard {...item} />}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContentContainer}
-        ListEmptyComponent={renderEmptyList}
+        ListEmptyComponent={loading ? renderLoading : error ? renderError : renderEmptyList}
+        refreshing={loading}
+        onRefresh={fetchConsultationHistory}
       />
 
-      {/* Date Filter Modal (Same as your last version, with Pressable fix) */}
+      {/* Date Filter Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -276,7 +467,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: theme.colors.customGreen[200],
-    marginHorizontal: 4, // Spacing between buttons
+    marginHorizontal: 4,
     height: 36,
   },
   filterButtonText: {
@@ -334,47 +525,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
-    flexGrow: 1, // Ensure empty component can center if list is short
+    flexGrow: 1,
   },
-  emptyContainer: { // New style for empty state container
-    flex: 1, // Allow it to take up available space in FlatList
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20, // Add some padding around content
+    padding: 20,
   },
   emptyText: {
     ...theme.typography.body1,
     color: theme.colors.customGray[200],
     textAlign: 'center',
-    marginTop: 16, // Space between icon and text
-  },
-  // Unused styles from original (dateModalActionButton, dateModalClearButton, etc.) are removed for brevity
-  // if they are now fully handled by the <Button> component's variants and styles prop.
-  // Kept for reference if Button component doesn't cover all styling needs.
-  dateModalActionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48
-  },
-  dateModalClearButton: {
-    backgroundColor: theme.colors.customGray[50],
-    marginRight: 8,
-    borderWidth:1,
-    borderColor: theme.colors.customGray[100]
-  },
-  dateModalClearButtonText: {
-    color: theme.colors.customOlive[50],
-    ...theme.typography.body2
-  },
-  dateModalSetButton: {
-    backgroundColor: theme.colors.customGreen[300],
-    marginLeft: 8,
-  },
-  dateModalSetButtonText: {
-     color: theme.colors.customWhite[50],
-     ...theme.typography.body2
+    marginTop: 16,
   },
 });
