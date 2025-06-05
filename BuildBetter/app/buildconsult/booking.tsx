@@ -316,7 +316,7 @@ const BookingConsultation: React.FC = () => {
         [
           {
             text: 'OK',
-            onPress: () => router.back()
+            onPress: () => router.push('/buildconsult/payment')
           }
         ]
       );

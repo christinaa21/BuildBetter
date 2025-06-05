@@ -140,7 +140,7 @@ const Textfield: React.FC<TextfieldProps> = ({
   // Clone and modify icon with appropriate color if it exists
   const coloredIcon = icon && React.isValidElement(icon) 
     ? React.cloneElement(icon as React.ReactElement, {
-        color: localError ? 'red' : (isFocused ? theme.colors.customGreen[300] : theme.colors.customGray[50]),
+        color: localError ? 'red' : (theme.colors.customGreen[300]),
         size: 20,
       })
     : icon;
