@@ -1,3 +1,4 @@
+// app/buildconsult/architects.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -115,9 +116,26 @@ export default function Architects() {
     console.log('Chat with architect:', architectId);
   };
 
-  const handleBooking = (architectId: string) => {
-    // Navigate to booking flow
-    router.push('/buildconsult/booking');
+  const handleBooking = (architect: Architect) => {
+    // Navigate to booking flow with architect data
+    const architectData = {
+      id: architect.id,
+      username: architect.username,
+      experience: architect.experience,
+      city: architect.city,
+      rateOnline: architect.rateOnline,
+      rateOffline: architect.rateOffline,
+      photo: architect.photo,
+      portfolio: architect.portfolio
+    };
+
+    // Pass architect data as route params
+    router.push({
+      pathname: '/buildconsult/booking',
+      params: {
+        architectData: JSON.stringify(architectData)
+      }
+    });
   };
 
   const getCityFilterButtonText = () => {
@@ -206,7 +224,7 @@ export default function Architects() {
             key={architect.id}
             {...architect}
             onChatPress={() => handleChatPress(architect.id)}
-            onBookPress={() => handleBooking(architect.id)}
+            onBookPress={() => handleBooking(architect)}
           />
         ))}
       </ScrollView>

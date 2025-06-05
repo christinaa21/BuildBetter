@@ -235,6 +235,18 @@ export interface GetConsultationsResponse {
   error?: string;
 }
 
+export interface ArchitectSchedule {
+  date: string;
+  time: string[];
+}
+
+export interface GetArchitectSchedulesResponse {
+  code: number;
+  status: string;
+  data?: ArchitectSchedule[];
+  error?: string;
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -531,6 +543,22 @@ export const buildconsultApi = {
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         return error.response.data as GetConsultationsResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  // Get architect schedules
+  getArchitectSchedules: async (architectId: string): Promise<GetArchitectSchedulesResponse> => {
+    try {
+      const response = await apiClient.get<GetArchitectSchedulesResponse>(`/architects/${architectId}/schedules`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetArchitectSchedulesResponse;
       }
       return {
         code: 500,

@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+// app/buildconsult/booking.tsx
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,45 +12,38 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons, FontAwesome6 } from '@expo/vector-icons';
 import theme from '@/app/theme';
 import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
 import Dropdown from '@/component/Dropdown';
+import { buildconsultApi } from '@/services/api';
 
-// Mock data - replace with actual data from props/API
-const mockArchitectData = {
-  id: 'arch_001',
-  username: 'Erensa Ratu Chelsia',
-  experience: 10,
-  city: 'Kota Bandung',
-  rateOnline: 30000,
-  rateOffline: 100000,
-  photo: null, // Will use default image
-  portfolio: 'https://portfolio.example.com'
-};
+// Define interfaces for the API response
+interface ArchitectSchedule {
+  date: string;
+  time: string[];
+}
+
+interface ArchitectData {
+  id: string;
+  username: string;
+  experience: number;
+  city: string;
+  rateOnline: number;
+  rateOffline: number;
+  photo?: string;
+  portfolio?: string;
+}
 
 // Consultation types with their rates
 const consultationTypes = [
-  { label: 'Chat', value: 'chat', rate: mockArchitectData.rateOnline },
-  { label: 'Tatap Muka', value: 'tatap_muka', rate: mockArchitectData.rateOffline }
-];
-
-// Time slots for consultation (start times only)
-const timeSlots = [
-  { label: '09.00', value: '09:00' },
-  { label: '10.00', value: '10:00' },
-  { label: '11.00', value: '11:00' },
-  { label: '13.00', value: '13:00' },
-  { label: '14.00', value: '14:00' },
-  { label: '15.00', value: '15:00' },
-  { label: '16.00', value: '16:00' },
-  { label: '17.00', value: '17:00' },
-  { label: '18.00', value: '18:00' },
-  { label: '19.00', value: '19:00' }
+  { label: 'Chat', value: 'chat' },
+  { label: 'Tatap Muka', value: 'tatap_muka' }
 ];
 
 // Duration options based on consultation type
@@ -91,9 +85,25 @@ interface FormErrors {
   locationDescription?: string;
 }
 
+// NEW: Helper function to perform time calculations
+const addMinutesToTime = (time: string, minutes: number): string => {
+  const [hours, mins] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, mins, 0, 0);
+  date.setMinutes(date.getMinutes() + minutes);
+  const newHours = date.getHours().toString().padStart(2, '0');
+  const newMins = date.getMinutes().toString().padStart(2, '0');
+  return `${newHours}:${newMins}`;
+};
+
 const BookingConsultation: React.FC = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   
+  const architectData: ArchitectData = params.architectData 
+    ? JSON.parse(params.architectData as string) 
+    : null;
+
   const [formData, setFormData] = useState<BookingFormData>({
     consultationType: '',
     consultationDate: null,
@@ -107,29 +117,127 @@ const BookingConsultation: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [architectSchedules, setArchitectSchedules] = useState<ArchitectSchedule[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<{label: string, value: string}[]>([]);
 
-  // Calculate total payment
+  useEffect(() => {
+    if (!architectData) {
+      Alert.alert('Error', 'Architect data not found', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    }
+  }, [architectData, router]);
+
+  const fetchArchitectSchedules = async () => {
+    if (!architectData?.id) return;
+
+    try {
+      setScheduleLoading(true);
+      const response = await buildconsultApi.getArchitectSchedules(architectData.id);
+      
+      if (response.code === 200 && response.data) {
+        setArchitectSchedules(response.data);
+      } else {
+        console.error('Failed to fetch architect schedules:', response.error);
+        Alert.alert('Error', 'Failed to load architect availability');
+      }
+    } catch (error) {
+      console.error('Error fetching architect schedules:', error);
+      Alert.alert('Error', 'Failed to load architect availability');
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchArchitectSchedules();
+  }, [architectData?.id]);
+
+  const generateAllTimeSlots = (): string[] => {
+    const slots = [];
+    for (let hour = 8; hour <= 19; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        if (hour === 19 && minute > 0) break;
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(timeString);
+      }
+    }
+    return slots;
+  };
+
+  // CHANGED: This useEffect now handles duration and commute buffers.
+  useEffect(() => {
+    if (formData.consultationDate) {
+      const selectedDateStr = formData.consultationDate.toISOString().split('T')[0];
+      const unavailableForDate = architectSchedules.find(schedule => schedule.date === selectedDateStr);
+      const baseUnavailableSlots = unavailableForDate ? unavailableForDate.time.map(time => time.substring(0, 5)) : [];
+
+      // NEW: Add 1-hour commute buffer for offline consultations
+      let effectiveUnavailableSlots = [...baseUnavailableSlots];
+      if (formData.consultationType === 'tatap_muka') {
+        const bufferedSlots = new Set<string>();
+        baseUnavailableSlots.forEach(slot => {
+          // Assuming each booked slot is at least 30 mins
+          bufferedSlots.add(slot); // The slot itself
+          // 1 hour buffer before
+          bufferedSlots.add(addMinutesToTime(slot, -30));
+          bufferedSlots.add(addMinutesToTime(slot, -60));
+          // 1 hour buffer after
+          bufferedSlots.add(addMinutesToTime(slot, 30));
+          bufferedSlots.add(addMinutesToTime(slot, 60));
+        });
+        effectiveUnavailableSlots = Array.from(bufferedSlots);
+      }
+      
+      const allTimeSlots = generateAllTimeSlots();
+      
+      // NEW: Filter available slots based on duration
+      const durationInMinutes = formData.duration || 30; // Default to 30 mins if not selected
+
+      const durationAwareAvailableSlots = allTimeSlots.filter(startTime => {
+        // A start time is valid if it and all its subsequent slots needed for the duration are available.
+        for (let i = 0; i < durationInMinutes; i += 30) {
+          const checkTime = addMinutesToTime(startTime, i);
+          if (effectiveUnavailableSlots.includes(checkTime)) {
+            return false; // This time window is blocked.
+          }
+        }
+        return true; // This time window is free.
+      });
+
+      const timeSlots = durationAwareAvailableSlots.map(time => ({
+        label: time,
+        value: time
+      }));
+      
+      setAvailableTimeSlots(timeSlots);
+      
+      // Reset selected time if it's no longer available after duration/type change
+      if (!durationAwareAvailableSlots.includes(formData.consultationTime)) {
+        setFormData(prev => ({ ...prev, consultationTime: '' }));
+      }
+    }
+  }, [formData.consultationDate, formData.duration, formData.consultationType, architectSchedules]);
+
   const calculateTotal = (): number => {
-    if (!formData.consultationType || !formData.duration) {
+    if (!formData.consultationType || !formData.duration || !architectData) {
       return 0;
     }
 
     const { consultationType, duration } = formData;
     
     if (consultationType === 'chat') {
-      // Online rate is per 30 minutes
       const sessions = duration / 30;
-      return sessions * mockArchitectData.rateOnline;
+      return sessions * architectData.rateOnline;
     } else if (consultationType === 'tatap_muka') {
-      // Offline rate is per 60 minutes (1 hour)
       const sessions = duration / 60;
-      return sessions * mockArchitectData.rateOffline;
+      return sessions * architectData.rateOffline;
     }
     
     return 0;
   };
 
-  // Validation functions
   const validateConsultationType = (type: string) => {
     if (!type) return 'Harap pilih tipe konsultasi';
     return undefined;
@@ -137,9 +245,6 @@ const BookingConsultation: React.FC = () => {
 
   const validateConsultationDate = (date: Date | null) => {
     if (!date) return 'Harap pilih tanggal konsultasi';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date < today) return 'Tanggal konsultasi tidak boleh di masa lalu';
     return undefined;
   };
 
@@ -155,19 +260,17 @@ const BookingConsultation: React.FC = () => {
 
   const validateGoogleMapsLink = (link: string) => {
     if (!link.trim()) return 'Harap masukkan link Google Maps';
-    // Basic URL validation
     const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
     if (!urlPattern.test(link)) return 'Link Google Maps tidak valid';
     return undefined;
   };
 
-  // Handle form field changes
   const handleConsultationTypeChange = (value: string) => {
     setFormData(prev => ({
       ...prev,
       consultationType: value,
-      duration: null, // Reset duration when consultation type changes
-      // Reset location fields when switching from tatap muka to chat
+      duration: null,
+      consultationTime: '',
       googleMapsLink: value === 'chat' ? '' : prev.googleMapsLink,
       locationDescription: value === 'chat' ? '' : prev.locationDescription,
       architectOnlyInBandung: value === 'tatap_muka' ? false : prev.architectOnlyInBandung
@@ -176,7 +279,7 @@ const BookingConsultation: React.FC = () => {
   };
 
   const handleDateConfirm = (date: Date) => {
-    setFormData(prev => ({ ...prev, consultationDate: date }));
+    setFormData(prev => ({ ...prev, consultationDate: date, consultationTime: '' }));
     setErrors(prev => ({ ...prev, consultationDate: undefined }));
     setDatePickerVisible(false);
   };
@@ -188,7 +291,7 @@ const BookingConsultation: React.FC = () => {
 
   const handleDurationChange = (value: string) => {
     const duration = parseInt(value);
-    setFormData(prev => ({ ...prev, duration }));
+    setFormData(prev => ({ ...prev, duration, consultationTime: '' }));
     setErrors(prev => ({ ...prev, duration: undefined }));
   };
 
@@ -203,14 +306,10 @@ const BookingConsultation: React.FC = () => {
 
   const calculateEndTime = (startTime: string, duration: number): string => {
     if (!startTime || !duration) return '';
-    
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(hours, minutes, 0, 0);
-    
-    const endDate = new Date(startDate.getTime() + duration * 60000);
-    return endDate.toTimeString().slice(0, 5);
+    return addMinutesToTime(startTime, duration);
   };
+
+  // ... (the rest of the component remains largely the same)
 
   const formatScheduleSummary = (): string => {
     if (!formData.consultationDate || !formData.consultationTime || !formData.duration) {
@@ -251,14 +350,12 @@ const BookingConsultation: React.FC = () => {
     }).format(amount);
   };
 
-  // Helper function to safely handle URL opening
   const handlePortfolioPress = (portfolio: string | undefined) => {
     if (!portfolio || typeof portfolio !== 'string' || portfolio.trim() === '') {
       return;
     }
     
     try {
-      // Basic URL validation
       const url = portfolio.startsWith('http') ? portfolio : `https://${portfolio}`;
       Linking.openURL(url).catch((err) => {
         console.warn('Failed to open portfolio URL:', err);
@@ -269,7 +366,6 @@ const BookingConsultation: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // Validate all fields
     const consultationTypeError = validateConsultationType(formData.consultationType);
     const consultationDateError = validateConsultationDate(formData.consultationDate);
     const consultationTimeError = validateConsultationTime(formData.consultationTime);
@@ -296,9 +392,8 @@ const BookingConsultation: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
       console.log('Booking data:', {
-        architectId: mockArchitectData.id,
+        architectId: architectData?.id,
         consultationType: formData.consultationType,
         consultationDate: formData.consultationDate,
         consultationTime: formData.consultationTime,
@@ -307,7 +402,6 @@ const BookingConsultation: React.FC = () => {
         totalAmount: calculateTotal()
       });
 
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       Alert.alert(
@@ -332,6 +426,16 @@ const BookingConsultation: React.FC = () => {
     }
   };
 
+  if (!architectData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -346,33 +450,35 @@ const BookingConsultation: React.FC = () => {
           {/* Architect Info */}
           <View style={styles.architectCard}>
             <Image 
-              source={mockArchitectData.photo ? { uri: mockArchitectData.photo } : require('@/assets/images/blank-profile.png')} 
+              source={architectData.photo ? { uri: architectData.photo } : require('@/assets/images/blank-profile.png')} 
               style={styles.architectPhoto}
               defaultSource={require('@/assets/images/blank-profile.png')}
             />
             <View style={styles.architectInfo}>
               <Text style={[theme.typography.subtitle2, styles.architectName]}>
-                {mockArchitectData.username}
+                {architectData.username}
               </Text>
               <View style={styles.architectTags}>
                 <View style={styles.tag}>
                   <FontAwesome6 name="suitcase" size={10} color={theme.colors.customGreen[200]} />
                   <Text style={[theme.typography.caption, styles.tagText]}>
-                    {mockArchitectData.experience} tahun
+                    {architectData.experience} tahun
                   </Text>
                 </View>
                 <View style={styles.tag}>
                   <FontAwesome6 name="location-dot" size={10} color={theme.colors.customGreen[200]} />
                   <Text style={[theme.typography.caption, styles.tagText]}>
-                    {mockArchitectData.city}
+                    {architectData.city}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.portfolioLink} onPress={() => handlePortfolioPress(mockArchitectData.portfolio)}>
-                <Text style={[theme.typography.caption, styles.portfolioText]}>
-                  Lihat Portfolio
-                </Text>
-              </TouchableOpacity>
+              {architectData.portfolio && (
+                <TouchableOpacity style={styles.portfolioLink} onPress={() => handlePortfolioPress(architectData.portfolio)}>
+                  <Text style={[theme.typography.caption, styles.portfolioText]}>
+                    Lihat Portfolio
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -383,12 +489,11 @@ const BookingConsultation: React.FC = () => {
                 Pesan Sesi Konsultasi
               </Text>
               <Text style={[{color: theme.colors.customOlive[50], fontSize: 13, fontWeight: '400'}]}>
-                Konsultasi via chat: {formatCurrency(mockArchitectData.rateOnline)} per 30 menit {'\n'}
-                Konsultasi tatap muka: {formatCurrency(mockArchitectData.rateOffline)} per 1 jam
+                Konsultasi via chat: {formatCurrency(architectData.rateOnline)} per 30 menit {'\n'}
+                Konsultasi tatap muka: {formatCurrency(architectData.rateOffline)} per 1 jam
               </Text>
             </View>
 
-            {/* Consultation Type */}
             <Dropdown
               label="Tipe konsultasi"
               placeholder="Pilih tipe konsultasi..."
@@ -398,23 +503,26 @@ const BookingConsultation: React.FC = () => {
               error={errors.consultationType}
             />
 
-            {/* Consultation Date */}
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={[theme.typography.body2, styles.inputLabel]}>
                   Tanggal konsultasi
+                  {scheduleLoading && (
+                    <ActivityIndicator size="small" color={theme.colors.customGreen[300]} style={{ marginLeft: 8 }} />
+                  )}
                 </Text>
               </View>
               <TouchableOpacity
                 style={[styles.datePickerButton, errors.consultationDate && styles.inputError]}
                 onPress={() => setDatePickerVisible(true)}
+                disabled={scheduleLoading}
               >
                 <Text style={[
                   theme.typography.body1,
                   { color: formData.consultationDate ? theme.colors.customGreen[500] : theme.colors.customGray[100] },
                   styles.dateText
                 ]}>
-                  {formatDate(formData.consultationDate)}
+                  {scheduleLoading ? 'Memuat jadwal...' : formatDate(formData.consultationDate)}
                 </Text>
                 <MaterialIcons 
                   name="keyboard-arrow-down" 
@@ -428,17 +536,7 @@ const BookingConsultation: React.FC = () => {
               )}
             </View>
 
-            {/* Consultation Time */}
-            <Dropdown
-              label="Waktu konsultasi"
-              placeholder="Pilih waktu konsultasi..."
-              options={timeSlots}
-              value={formData.consultationTime}
-              onChange={handleTimeChange}
-              error={errors.consultationTime}
-            />
-
-            {/* Duration */}
+            {/* CHANGED: Duration is now only enabled if a type is also selected */}
             {formData.consultationType && (
               <Dropdown
                 label="Durasi"
@@ -450,11 +548,20 @@ const BookingConsultation: React.FC = () => {
               />
             )}
 
-            {/* Schedule Summary */}
+            <Dropdown
+              label="Waktu konsultasi"
+              placeholder="Pilih waktu konsultasi..."
+              options={availableTimeSlots}
+              value={formData.consultationTime}
+              onChange={handleTimeChange}
+              error={errors.consultationTime}
+              disabled={!formData.consultationDate || !formData.duration || availableTimeSlots.length === 0}
+            />
+            
             {formatScheduleSummary() && (
               <>
                 <Text style={[theme.typography.caption, styles.scheduleLabel]}>
-                  Tanggal dan waktu konsultasi yang dipilih:
+                  Estimasi jadwal konsultasi:
                 </Text>
                 <Text style={[theme.typography.caption, styles.scheduleSummary]}>
                   {formatScheduleSummary()}
@@ -462,7 +569,6 @@ const BookingConsultation: React.FC = () => {
               </>
             )}
 
-            {/* Location fields - only show for tatap muka */}
             {formData.consultationType === 'tatap_muka' && (
               <>
                 <Textfield
@@ -492,7 +598,6 @@ const BookingConsultation: React.FC = () => {
                   numberOfLines={3}
                 />
 
-                {/* Architect availability notice */}
                 <TouchableOpacity 
                   style={styles.checkboxContainer}
                   onPress={() => setFormData(prev => ({ ...prev, architectOnlyInBandung: !prev.architectOnlyInBandung }))}
@@ -503,7 +608,7 @@ const BookingConsultation: React.FC = () => {
                     )}
                   </View>
                   <Text style={[theme.typography.body2, styles.checkboxText]}>
-                    Saya mengetahui bahwa arsitek hanya dapat ditemui di {mockArchitectData.city}
+                    Saya mengetahui bahwa arsitek hanya dapat ditemui di {architectData.city}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -511,7 +616,6 @@ const BookingConsultation: React.FC = () => {
           </View>
         </ScrollView>
 
-        {/* Sticky Bottom Container */}
         <View style={styles.bottomContainer}>
           <View style={styles.paymentInfo}>
             <Text style={[theme.typography.body2, styles.paymentLabel]}>
@@ -531,13 +635,13 @@ const BookingConsultation: React.FC = () => {
           </View>
         </View>
 
-        {/* Date Picker Modal */}
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
           mode="date"
           onConfirm={handleDateConfirm}
           onCancel={() => setDatePickerVisible(false)}
           minimumDate={new Date()}
+          maximumDate={new Date(new Date().setDate(new Date().getDate() + 90))}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -552,9 +656,14 @@ const styles = StyleSheet.create({
   keyboardAvoid: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 120, // Add padding to prevent content from being hidden behind bottom container
+    paddingBottom: 120,
   },
   architectCard: {
     flexDirection: 'row',
