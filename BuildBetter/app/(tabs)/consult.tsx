@@ -1,6 +1,6 @@
 // app/buildconsult/index.tsx
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from '../theme';
@@ -8,67 +8,151 @@ import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
 import ArchitectCard, { ArchitectStatus } from '@/component/ArchitectCard';
 import { useAuth } from '@/context/AuthContext';
+import { buildconsultApi, Architect } from '@/services/api';
+import * as SecureStore from 'expo-secure-store';
 
-// Mock data for architects
-const mockArchitects = [
-  {
-    id: '1',
-    username: 'Erensa Ratu Chelsia',
-    experience: 10,
-    city: 'Kota Bandung',
-    rateOnline: 30,
-    rateOffline: 100,
-    status: 'Dijadwalkan' as ArchitectStatus,
-    portfolio: 'https://issuu.com/erensaratu/docs/architecture_portfolio_by_erensa_ratu_chelsia'
-  },
-  {
-    id: '2',
-    username: 'Ahmad Prasetyo',
-    experience: 8,
-    city: 'Kota Jakarta Selatan',
-    rateOnline: 35,
-    rateOffline: 120,
-    status: 'Berlangsung' as ArchitectStatus,
-  },
-  {
-    id: '3',
-    username: 'Sari Indah',
-    experience: 12,
-    city: 'Surabaya',
-    rateOnline: 40,
-    rateOffline: 150,
-    status: 'Berakhir' as ArchitectStatus,
-  },
-];
+// Define consultation types based on API response
+interface Consultation {
+  id: string;
+  userId: string;
+  architectId: string;
+  roomId: string | null;
+  type: 'online' | 'offline';
+  total: number;
+  status: 'waiting-for-payment' | 'waiting-for-confirmation' | 'cancelled' | 'scheduled' | 'in-progress' | 'ended';
+  reason: string | null;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+interface ConsultationWithArchitect extends Consultation {
+  architect: Architect;
+}
+
+// Helper function to map consultation status to ArchitectStatus
+const mapConsultationStatus = (status: string): ArchitectStatus => {
+  switch (status) {
+    case 'scheduled':
+      return 'Dijadwalkan';
+    case 'in-progress':
+      return 'Berlangsung';
+    case 'ended':
+      return 'Berakhir';
+    case 'cancelled':
+      return 'Dibatalkan';
+    case 'waiting-for-payment':
+      return 'Menunggu pembayaran';
+    case 'waiting-for-confirmation':
+      return 'Menunggu konfirmasi';
+    default:
+      return 'Berakhir';
+  }
+};
 
 export default function BuildConsultPage() {
   const router = useRouter();
   const { user } = useAuth();
   const name = user?.username;
   
-  // State to determine if user has consultation history
-  // In real app, this would come from API/database
   const [hasConsultationHistory, setHasConsultationHistory] = useState(false);
+  const [consultations, setConsultations] = useState<ConsultationWithArchitect[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [architects, setArchitects] = useState(mockArchitects);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    // Filter architects based on search query
-    if (query.trim() === '') {
-      setArchitects(mockArchitects);
-    } else {
-      const filtered = mockArchitects.filter(architect =>
-        architect.username.toLowerCase().includes(query.toLowerCase()) ||
-        architect.city.toLowerCase().includes(query.toLowerCase())
-      );
-      setArchitects(filtered);
+  // Filter consultations based on search query
+  const filteredConsultations = consultations.filter(consultation =>
+    consultation.architect.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    consultation.architect.city.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  useEffect(() => {
+    fetchConsultationHistory();
+  }, []);
+
+  const fetchConsultationHistory = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in
+      const token = await SecureStore.getItemAsync('userToken');
+      if (!token) {
+        setError('Please log in to view consultation history.');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch consultations
+      const consultationResponse = await buildconsultApi.getConsultations();
+      
+      if (consultationResponse.code !== 200 || !consultationResponse.data) {
+        setError(consultationResponse.error || 'Failed to fetch consultation history');
+        setLoading(false);
+        return;
+      }
+
+      const consultationsData: Consultation[] = consultationResponse.data;
+
+      // If no consultations found, show first-time user view
+      if (consultationsData.length === 0) {
+        setHasConsultationHistory(false);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch architects to match with consultations
+      const architectResponse = await buildconsultApi.getArchitects();
+      
+      if (architectResponse.code !== 200 || !architectResponse.data) {
+        setError(architectResponse.error || 'Failed to fetch architect data');
+        setLoading(false);
+        return;
+      }
+
+      const architectsData: Architect[] = architectResponse.data;
+
+      // Create a map for quick architect lookup
+      const architectMap = new Map<string, Architect>();
+      architectsData.forEach(architect => {
+        architectMap.set(architect.id, architect);
+      });
+
+      // Combine consultation data with architect data
+      const consultationsWithArchitects: ConsultationWithArchitect[] = consultationsData
+        .map(consultation => {
+          const architect = architectMap.get(consultation.architectId);
+          if (architect) {
+            return {
+              ...consultation,
+              architect
+            };
+          }
+          return null;
+        })
+        .filter((item): item is ConsultationWithArchitect => item !== null)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by newest first
+
+      setConsultations(consultationsWithArchitects);
+      setHasConsultationHistory(consultationsWithArchitects.length > 0);
+      setError(null);
+
+    } catch (err) {
+      console.error('Error fetching consultation history:', err);
+      setError('Network error or server unavailable. Please try again later.');
+      setHasConsultationHistory(false);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChatPress = (architectId: string) => {
-    // Navigate to chat with architect
-    console.log('Chat with architect:', architectId);
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const handleChatPress = (consultationId: string) => {
+    // Navigate to chat with architect for this consultation
+    console.log('Chat for consultation:', consultationId);
   };
 
   const handleBooking = (architectId: string) => {
@@ -79,6 +163,60 @@ export default function BuildConsultPage() {
   const handleConsultNow = () => {
     router.push('/buildconsult/architects');
   };
+
+  const handleRetry = () => {
+    fetchConsultationHistory();
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.searchContainer}>
+          <Textfield
+            icon={<MaterialIcons name="search" size={16}/>}
+            placeholder="Cari arsitek di sini..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+          <Text style={[theme.typography.body2, styles.loadingText]}>
+            Memuat riwayat konsultasi...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.searchContainer}>
+          <Textfield
+            icon={<MaterialIcons name="search" size={16}/>}
+            placeholder="Cari arsitek di sini..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={64} color={theme.colors.customGray[100]} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Button
+            title="Coba Lagi"
+            variant="primary"
+            onPress={handleRetry}
+          />
+        </View>
+        <TouchableOpacity style={styles.chatIcon} onPress={handleConsultNow}>
+          <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // First time user view
   if (!hasConsultationHistory) {
@@ -122,14 +260,14 @@ export default function BuildConsultPage() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.chatIcon} onPress={() => setHasConsultationHistory(true)}>
-            <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
+        <TouchableOpacity style={styles.chatIcon} onPress={handleConsultNow}>
+          <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Returning user view with search and architect list
+  // Returning user view with consultation history
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
@@ -149,18 +287,35 @@ export default function BuildConsultPage() {
             Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
           </Text>
         </View>
-        {architects.map((architect) => (
+        
+        {filteredConsultations.length === 0 && searchQuery.trim() !== '' && (
+          <View style={styles.emptySearchContainer}>
+            <MaterialIcons name="search-off" size={64} color={theme.colors.customGray[100]} />
+            <Text style={styles.emptySearchText}>
+              Tidak ada konsultasi yang sesuai dengan pencarian "{searchQuery}".
+            </Text>
+          </View>
+        )}
+
+        {filteredConsultations.map((consultation) => (
           <ArchitectCard
-            key={architect.id}
-            {...architect}
-            onChatPress={() => handleChatPress(architect.id)}
-            onBookPress={() => handleBooking(architect.id)}
+            key={consultation.id}
+            id={consultation.architect.id}
+            username={consultation.architect.username}
+            experience={consultation.architect.experience}
+            city={consultation.architect.city}
+            rateOnline={consultation.architect.rateOnline}
+            rateOffline={consultation.architect.rateOffline}
+            status={mapConsultationStatus(consultation.status)}
+            portfolio={consultation.architect.portfolio}
+            onChatPress={() => handleChatPress(consultation.id)}
+            onBookPress={() => handleBooking(consultation.architect.id)}
           />
         ))}
       </ScrollView>
 
       <TouchableOpacity style={styles.chatIcon} onPress={handleConsultNow} activeOpacity={0.4}>
-          <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
+        <MaterialCommunityIcons name="chat-plus" size={24} color={theme.colors.customWhite[50]} />
       </TouchableOpacity>
     </View>
   );
@@ -170,6 +325,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.customWhite[50],
+  },
+  // Loading styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    color: theme.colors.customOlive[50],
+    marginTop: 16,
+  },
+  // Error styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  errorText: {
+    ...theme.typography.body1,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
+    marginVertical: 16,
   },
   // First time user styles
   welcomeContent: {
@@ -239,48 +418,21 @@ const styles = StyleSheet.create({
     color: theme.colors.customOlive[50],
     marginBottom: 2,
   },
-  infoButton: {
-    position: 'absolute',
-    top: 8,
-    right: 12,
-    backgroundColor: theme.colors.customWhite[50],
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.customGray[100],
-  },
-  infoButtonText: {
-    color: theme.colors.customOlive[50],
-    fontSize: 10,
-  },
   architectList: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  newChatButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  newChatButtonContent: {
-    backgroundColor: theme.colors.customWhite[50],
-    borderRadius: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
+  emptySearchContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.customGray[100],
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
-  newChatButtonText: {
-    color: theme.colors.customOlive[50],
-    marginLeft: 4,
-    fontSize: 12,
+  emptySearchText: {
+    ...theme.typography.body1,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

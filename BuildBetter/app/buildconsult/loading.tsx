@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,10 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  BackHandler
 } from 'react-native';
 import Button from '@/component/Button';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -55,6 +56,39 @@ const ConsultationBookingLoading = () => {
   const scheduleDate = params.scheduleDate || MOCK_BOOKING_DATA.scheduleDate;
   const scheduleTime = params.scheduleTime || MOCK_BOOKING_DATA.scheduleTime;
   const type = MOCK_BOOKING_DATA.type;
+
+  // Disable back button/gesture
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // Return true to prevent default back action
+        // You can show an alert or handle it differently based on state
+        if (bookingState === 'loading') {
+          Alert.alert(
+            'Tunggu Sebentar',
+            'Pesanan sedang diproses, mohon tunggu...',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Keluar?',
+            'Apakah Anda yakin ingin keluar dari halaman ini?',
+            [
+              { text: 'Batal', style: 'cancel' },
+              { text: 'Ya', onPress: () => router.replace('/(tabs)/home') }
+            ]
+          );
+        }
+        return true; // Prevent default back action
+      };
+
+      // Add event listener
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      // Cleanup function
+      return () => backHandler.remove();
+    }, [bookingState, router])
+  );
 
   // Process booking when component mounts
   useEffect(() => {
@@ -120,7 +154,7 @@ const ConsultationBookingLoading = () => {
   const handleBackToMain = () => {
     console.log('Going back to main...');
     Alert.alert('Mock Action', 'Would navigate to main page');
-    // router.replace('/');
+    router.replace('/(tabs)/home');
   };
 
   // Mock scenario switcher for testing (remove in production)

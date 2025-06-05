@@ -213,6 +213,28 @@ export interface GetArchitectsResponse {
   error?: string;
 }
 
+export interface Consultation {
+  id: string;
+  userId: string;
+  architectId: string;
+  roomId: string | null;
+  type: 'online' | 'offline';
+  total: number;
+  status: 'waiting-for-payment' | 'waiting-for-confirmation' | 'cancelled' | 'scheduled' | 'in-progress' | 'ended';
+  reason: string | null;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+export interface GetConsultationsResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: Consultation[];
+  error?: string;
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -493,6 +515,22 @@ export const buildconsultApi = {
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         return error.response.data as GetArchitectsResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  // Get User's Consultation
+  getConsultations: async (): Promise<GetConsultationsResponse> => {
+    try {
+      const response = await apiClient.get<GetConsultationsResponse>('/users/consultations');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetConsultationsResponse;
       }
       return {
         code: 500,

@@ -5,7 +5,7 @@ import theme from '@/app/theme';
 import Button from './Button';
 import { FontAwesome6, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-export type ArchitectStatus = 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
+export type ArchitectStatus = 'Dijadwalkan' | 'Berlangsung' | 'Berakhir' | 'Menunggu konfirmasi' | 'Menunggu pembayaran' | 'Dibatalkan';
 
 export interface ArchitectCardProps {
   id: string;
@@ -29,6 +29,9 @@ interface StatusDisplayProps {
 }
 
 const statusStyles: Record<ArchitectStatus, StatusDisplayProps> = {
+  'Menunggu pembayaran': { backgroundColor: '#FEFCE8', dotColor: '#EFB100', textColor: theme.colors.customOlive[50] },
+  'Menunggu konfirmasi': { backgroundColor: '#FFF3E0', dotColor: '#FF9800', textColor: theme.colors.customOlive[50] },
+  'Dibatalkan': { backgroundColor: '#FFEBEE', dotColor: '#F44336', textColor: theme.colors.customOlive[50] },
   'Dijadwalkan': { backgroundColor: '#CAE1DB', dotColor: theme.colors.customGreen[300], textColor: theme.colors.customOlive[50] },
   'Berlangsung': { backgroundColor: '#E3F2FD', dotColor: '#2196F3', textColor: theme.colors.customOlive[50] },
   'Berakhir': { backgroundColor: theme.colors.customGray[50], dotColor: theme.colors.customOlive[50], textColor: theme.colors.customOlive[50] },
