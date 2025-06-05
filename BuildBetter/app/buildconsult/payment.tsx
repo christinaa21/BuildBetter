@@ -183,7 +183,7 @@ const PaymentPage: React.FC = () => {
         [
           {
             text: 'OK',
-            onPress: () => router.back()
+            onPress: () => router.push('/buildconsult/loading')
           }
         ]
       );
@@ -228,7 +228,7 @@ const PaymentPage: React.FC = () => {
               <Text style={[theme.typography.body2, styles.totalLabel]}>
                 Total yang perlu dibayar:
               </Text>
-              <Text style={[theme.typography.title, styles.totalAmount]}>
+              <Text style={[theme.typography.subtitle1, styles.totalAmount]}>
                 {formatCurrency(mockPaymentData.totalAmount)}
               </Text>
             </View>
