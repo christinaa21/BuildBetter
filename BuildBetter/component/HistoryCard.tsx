@@ -1,23 +1,27 @@
 // components/HistoryCard.tsx
 import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { useRouter } from 'expo-router';
 import theme from '@/app/theme';
 import Button from './Button';
+import { Architect } from '@/services/api';
 
 export type HistoryStatus = 'Menunggu pembayaran' | 'Menunggu konfirmasi' | 'Dibatalkan' | 'Dijadwalkan' | 'Berlangsung' | 'Berakhir';
 export type HistoryMetode = 'Chat' | 'Tatap Muka';
 
 export interface HistoryCardProps {
   id: string;
-  orderCreatedAt: string; 
-  arsitek: string;
+  orderCreatedAt: string; // The formatted creation date for display
+  createdAtISO: string; // The raw ISO string for timer logic
+  arsitek: Architect; // Pass the whole architect object for re-booking
   metode: HistoryMetode;
   tanggal: string; 
   waktu: string;   
   kota: string;
   totalPembayaran: number;
   status: HistoryStatus;
-  onHubungiLagi?: () => void;
+  reason?: string | null; // For cancellation reason
+  roomId?: string | null; // For chat
   style?: StyleProp<ViewStyle>;
 }
 
@@ -36,19 +40,108 @@ const statusStyles: Record<HistoryStatus, StatusDisplayProps> = {
   'Berakhir': { backgroundColor: theme.colors.customGray[50], dotColor: theme.colors.customOlive[50], textColor: theme.colors.customOlive[50] },
 };
 
-const HistoryCard: React.FC<HistoryCardProps> = ({
-  orderCreatedAt,
-  arsitek,
-  metode,
-  tanggal, 
-  waktu,   
-  kota,
-  totalPembayaran,
-  status,
-  onHubungiLagi,
-  style,
-}) => {
+const HistoryCard: React.FC<HistoryCardProps> = (props) => {
+  const {
+    id,
+    orderCreatedAt,
+    createdAtISO,
+    arsitek,
+    metode,
+    tanggal,
+    waktu,
+    kota,
+    totalPembayaran,
+    status,
+    reason,
+    roomId,
+    style,
+  } = props;
+  
+  const router = useRouter();
   const currentStatusStyle = statusStyles[status];
+
+  const handleHubungiLagi = () => {
+    router.push({
+      pathname: '/buildconsult/booking',
+      params: { architectData: JSON.stringify(arsitek) }
+    });
+  };
+
+  const handleLanjutBayar = () => {
+    router.push({
+      pathname: '/buildconsult/payment',
+      params: { 
+        consultationId: id,
+        totalAmount: totalPembayaran.toString(),
+        createdAt: createdAtISO,
+      }
+    });
+  };
+
+  const handleLihatChat = () => {
+    // Navigate to the chat screen with the roomId
+    // Example: router.push(`/chat/${roomId}`);
+    console.log('Navigate to chat room:', roomId);
+    alert('Fungsi "Lihat Chat" belum diimplementasikan.');
+  };
+  
+  const handleLihatStatus = () => {
+    alert('Pembayaran Anda sedang diverifikasi oleh admin. Silakan cek kembali nanti.');
+  };
+
+  const renderActionButton = () => {
+    const buttonProps = {
+      minHeight: 36,
+      minWidth: 100,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      textStyle: theme.typography.caption,
+    };
+
+    switch (status) {
+      case 'Menunggu pembayaran':
+        return (
+          <Button
+            title="Lanjut Bayar"
+            variant="primary"
+            onPress={handleLanjutBayar}
+            {...buttonProps}
+          />
+        );
+      case 'Menunggu konfirmasi':
+        return (
+          <Button
+            title="Lihat Status"
+            variant="outline"
+            onPress={handleLihatStatus}
+            {...buttonProps}
+          />
+        );
+      case 'Dijadwalkan':
+      case 'Berlangsung':
+        return (
+          <Button
+            title="Lihat Chat"
+            variant="primary"
+            onPress={handleLihatChat}
+            disabled={!roomId}
+            {...buttonProps}
+          />
+        );
+      case 'Berakhir':
+      case 'Dibatalkan':
+        return (
+          <Button
+            title="Hubungi Lagi"
+            variant="outline"
+            onPress={handleHubungiLagi}
+            {...buttonProps}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <View style={[styles.card, style]}>
@@ -63,12 +156,15 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       <View style={styles.divider} />
 
       <Text style={[theme.typography.subtitle2, styles.serviceTitle]}>Layanan BuildConsult</Text>
-      <Text style={[theme.typography.body2, styles.infoText]}>Arsitek: {arsitek}</Text>
+      <Text style={[theme.typography.body2, styles.infoText]}>Arsitek: {arsitek.username}</Text>
       <Text style={[theme.typography.body2, styles.infoText]}>Metode: {metode}</Text>
       <Text style={[theme.typography.body2, styles.infoText]}>Tanggal konsultasi: {tanggal}</Text>
       <Text style={[theme.typography.body2, styles.infoText]}>Waktu konsultasi: {waktu}</Text>
-      {metode == 'Tatap Muka' &&
+      {metode === 'Tatap Muka' &&
         <Text style={[theme.typography.body2, styles.infoText]}>Kota: {kota}</Text>
+      }
+      {status === 'Dibatalkan' && reason &&
+        <Text style={[theme.typography.body2, styles.reasonText]}>Alasan: {reason}</Text>
       }
 
       <View style={styles.footer}>
@@ -78,18 +174,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             Rp{totalPembayaran.toLocaleString('id-ID')}
           </Text>
         </View>
-        {onHubungiLagi && (
-          <Button
-            title="Hubungi Lagi"
-            variant="outline"
-            onPress={onHubungiLagi}
-            minHeight={36}
-            minWidth={100}
-            paddingVertical={8}
-            paddingHorizontal={16}
-            textStyle={theme.typography.caption}
-          />
-        )}
+        {renderActionButton()}
       </View>
     </View>
   );
@@ -141,6 +226,11 @@ const styles = StyleSheet.create({
   infoText: {
     color: theme.colors.customOlive[50],
     marginBottom: 2
+  },
+  reasonText: {
+    color: '#F44336',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   footer: {
     flexDirection: 'row',

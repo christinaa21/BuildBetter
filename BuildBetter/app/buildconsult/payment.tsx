@@ -10,18 +10,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ActivityIndicator
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import theme from '@/app/theme';
 import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
+import { buildconsultApi, paymentsApi } from '@/services/api';
 
-// Mock payment data - replace with actual data from props/route params
-const mockPaymentData = {
-  totalAmount: 30000,
-  paymentDeadlineMinutes: 10,
+const bankDetails = {
   bankName: 'BCA',
   accountNumber: '8570327098',
   accountName: 'Christina Wijaya'
@@ -41,7 +41,9 @@ interface FormErrors {
 
 const PaymentPage: React.FC = () => {
   const router = useRouter();
-  
+  const params = useLocalSearchParams();
+  const { consultationId, totalAmount, createdAt: createdAtParam } = params;
+
   const [formData, setFormData] = useState<PaymentFormData>({
     paymentProof: null,
     paymentMethod: '',
@@ -50,27 +52,80 @@ const PaymentPage: React.FC = () => {
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(mockPaymentData.paymentDeadlineMinutes * 60); // in seconds
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+  // Countdown timer initialization
+  useEffect(() => {
+    const initializeTimer = async () => {
+      try {
+        if (!consultationId) {
+          Alert.alert("Error", "Consultation ID not found.", [{ text: "OK", onPress: () => router.back() }]);
+          return;
+        }
+
+        let consultationCreationTime: string | undefined = createdAtParam as string;
+
+        // Fallback: If createdAt is not passed via params (e.g., deep link), fetch it.
+        if (!consultationCreationTime) {
+          console.log("createdAt not found in params, fetching consultation details...");
+          const response = await buildconsultApi.getConsultationById(consultationId as string);
+          if (response.code === 200 && response.data) {
+            consultationCreationTime = response.data.createdAt;
+          } else {
+            Alert.alert("Error", "Could not fetch consultation details for timer.", [{ text: "OK", onPress: () => router.back() }]);
+            return;
+          }
+        }
+        
+        // Calculate expiry time: 10 minutes after creation
+        const expiryTime = new Date(consultationCreationTime!).getTime() + 10 * 60 * 1000;
+        const now = Date.now();
+        const remainingSeconds = Math.max(0, Math.floor((expiryTime - now) / 1000));
+        
+        if (remainingSeconds > 0) {
+            setTimeRemaining(remainingSeconds);
+        } else {
+            setTimeRemaining(0);
+            Alert.alert(
+                'Waktu Habis',
+                'Waktu pembayaran untuk sesi ini telah habis. Silakan melakukan booking ulang.',
+                [{ text: 'OK', onPress: () => router.replace('/(tabs)/consult') }]
+            );
+        }
+
+      } catch (error) {
+        console.error("Error initializing timer:", error);
+        Alert.alert("Error", "Failed to initialize payment timer.", [{ text: "OK", onPress: () => router.back() }]);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    
+    initializeTimer();
+  }, [consultationId, createdAtParam, router]);
 
   // Countdown timer effect
   useEffect(() => {
+    if (timeRemaining === null || timeRemaining <= 0) return;
+
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
-        if (prev <= 1) {
+        if (prev! <= 1) {
           clearInterval(timer);
           Alert.alert(
             'Waktu Habis',
             'Waktu pembayaran telah habis. Silakan melakukan booking ulang.',
-            [{ text: 'OK', onPress: () => router.back() }]
+            [{ text: 'OK', onPress: () => router.replace('/(tabs)/consult') }]
           );
           return 0;
         }
-        return prev - 1;
+        return prev! - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [router]);
+  }, [timeRemaining, router]);
 
   // Format countdown timer
   const formatTime = (seconds: number): string => {
@@ -149,55 +204,88 @@ const PaymentPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // Validate all fields
+    // Keep validation logic
     const paymentProofError = validatePaymentProof(formData.paymentProof);
     const paymentMethodError = validatePaymentMethod(formData.paymentMethod);
     const senderNameError = validateSenderName(formData.senderName);
 
-    setErrors({
+    const currentErrors = {
       paymentProof: paymentProofError,
       paymentMethod: paymentMethodError,
       senderName: senderNameError,
-    });
+    };
 
-    if (paymentProofError || paymentMethodError || senderNameError) {
+    setErrors(currentErrors);
+
+    if (Object.values(currentErrors).some(error => error !== undefined)) {
       return;
     }
 
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
-      console.log('Payment confirmation data:', {
-        totalAmount: mockPaymentData.totalAmount,
-        paymentProof: formData.paymentProof,
-        paymentMethod: formData.paymentMethod,
-        senderName: formData.senderName,
-      });
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const data = new FormData();
+      const proof = formData.paymentProof!;
       
-      Alert.alert(
-        'Pembayaran Berhasil',
-        'Terima kasih! Pembayaran Anda sedang diverifikasi. Kami akan menghubungi Anda segera.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/buildconsult/loading')
-          }
-        ]
-      );
+      const uriParts = proof.uri.split('.');
+      const fileType = uriParts[uriParts.length - 1];
+
+      data.append('image', {
+        uri: proof.uri,
+        name: proof.fileName || `proof.${fileType}`,
+        type: `image/${fileType}`,
+      } as any);
+
+      data.append('paymentMethod', formData.paymentMethod);
+      data.append('sender', formData.senderName);
+      
+      // The response here contains the confirmation.
+      // The 'consultationId' is the one we already have from params.
+      const response = await paymentsApi.uploadPaymentProof(consultationId as string, data);
+
+      if (response.code === 200) {
+        // Clear stored data on success
+        await SecureStore.deleteItemAsync('currentConsultationId');
+        await SecureStore.deleteItemAsync('paymentExpiredDate');
+
+        setTimeRemaining(null); 
+        
+        // *** THIS IS THE MODIFIED PART ***
+        // Instead of an alert, navigate directly to the loading page.
+        // We use 'replace' to prevent the user from going back to the payment page.
+        // We pass the consultationId so the loading page can use it.
+        router.replace({
+          pathname: '/buildconsult/loading',
+          params: { consultationId: consultationId as string }
+        });
+
+      } else {
+        Alert.alert(
+          'Konfirmasi Gagal',
+          response.error || 'Terjadi kesalahan saat memproses konfirmasi pembayaran.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('Payment confirmation failed:', error);
       Alert.alert(
         'Konfirmasi Gagal',
-        'Terjadi kesalahan saat memproses konfirmasi pembayaran. Silakan coba lagi.',
+        'Terjadi kesalahan. Periksa koneksi internet Anda dan coba lagi.',
         [{ text: 'OK' }]
       );
     } finally {
       setIsLoading(false);
     }
   };
+  
+  if (isInitializing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+          <ActivityIndicator size="large" color={theme.colors.customGreen[300]} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -217,7 +305,7 @@ const PaymentPage: React.FC = () => {
             </Text>
             <View style={styles.timeContainer}>
               <Text style={[theme.typography.title, styles.timeText]}>
-                {formatTime(timeRemaining)}
+                {timeRemaining !== null ? formatTime(timeRemaining) : '00:00'}
               </Text>
             </View>
           </View>
@@ -229,7 +317,7 @@ const PaymentPage: React.FC = () => {
                 Total yang perlu dibayar:
               </Text>
               <Text style={[theme.typography.subtitle1, styles.totalAmount]}>
-                {formatCurrency(mockPaymentData.totalAmount)}
+                {formatCurrency(Number(totalAmount) || 0)}
               </Text>
             </View>
 
@@ -245,7 +333,7 @@ const PaymentPage: React.FC = () => {
                   Bank
                 </Text>
                 <Text style={[theme.typography.body2, styles.bankValue]}>
-                  {mockPaymentData.bankName}
+                  {bankDetails.bankName}
                 </Text>
               </View>
 
@@ -254,7 +342,7 @@ const PaymentPage: React.FC = () => {
                   Nomor Rekening
                 </Text>
                 <Text style={[theme.typography.body2, styles.bankValue]}>
-                  {mockPaymentData.accountNumber}
+                  {bankDetails.accountNumber}
                 </Text>
               </View>
 
@@ -263,7 +351,7 @@ const PaymentPage: React.FC = () => {
                   Atas Nama
                 </Text>
                 <Text style={[theme.typography.body2, styles.bankValue]}>
-                  {mockPaymentData.accountName}
+                  {bankDetails.accountName}
                 </Text>
               </View>
             </View>

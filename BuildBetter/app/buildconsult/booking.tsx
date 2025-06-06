@@ -22,6 +22,7 @@ import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
 import Dropdown from '@/component/Dropdown';
 import { buildconsultApi } from '@/services/api';
+import * as SecureStore from 'expo-secure-store';
 
 // Define interfaces for the API response
 interface ArchitectSchedule {
@@ -96,6 +97,25 @@ const addMinutesToTime = (time: string, minutes: number): string => {
   return `${newHours}:${newMins}`;
 };
 
+// Helper function to format date and time into ISO string
+const toISOStringWithTimezone = (date: Date, time: string): string => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const newDate = new Date(date);
+  newDate.setHours(hours, minutes, 0, 0);
+  return newDate.toISOString().slice(0, 19);
+};
+
+const formatDateToLocalISO = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = '00'; // Or date.getSeconds().toString().padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 const BookingConsultation: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -166,59 +186,134 @@ const BookingConsultation: React.FC = () => {
     return slots;
   };
 
-  // CHANGED: This useEffect now handles duration and commute buffers.
+  // Helper function to format date consistently without timezone issues
+  const formatDateForComparison = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Updated useEffect for time slot generation
   useEffect(() => {
     if (formData.consultationDate) {
-      const selectedDateStr = formData.consultationDate.toISOString().split('T')[0];
+      // Use local date formatting to avoid timezone issues
+      const selectedDateStr = formatDateForComparison(formData.consultationDate);
+      
+      console.log('Selected date:', selectedDateStr);
+      console.log('Consultation date object:', formData.consultationDate);
+      console.log('Available schedules:', architectSchedules);
+      
+      // Also log all schedule dates for comparison
+      const scheduleDates = architectSchedules.map(schedule => schedule.date);
+      console.log('All scheduled dates:', scheduleDates);
+      
       const unavailableForDate = architectSchedules.find(schedule => schedule.date === selectedDateStr);
-      const baseUnavailableSlots = unavailableForDate ? unavailableForDate.time.map(time => time.substring(0, 5)) : [];
+      console.log('Unavailable slots for date:', unavailableForDate);
+      
+      // Process base unavailable slots
+      const baseUnavailableSlots = unavailableForDate ? 
+        unavailableForDate.time.map((time: string) => {
+          const timeStr = time;
+          return timeStr.substring(0, 5); // Get only HH:MM
+        }) : [];
+      
+      console.log('Base unavailable slots:', baseUnavailableSlots);
 
-      // NEW: Add 1-hour commute buffer for offline consultations
       let effectiveUnavailableSlots = [...baseUnavailableSlots];
+      
       if (formData.consultationType === 'tatap_muka') {
         const bufferedSlots = new Set<string>();
+        
         baseUnavailableSlots.forEach(slot => {
-          // Assuming each booked slot is at least 30 mins
-          bufferedSlots.add(slot); // The slot itself
-          // 1 hour buffer before
-          bufferedSlots.add(addMinutesToTime(slot, -30));
-          bufferedSlots.add(addMinutesToTime(slot, -60));
-          // 1 hour buffer after
-          bufferedSlots.add(addMinutesToTime(slot, 30));
-          bufferedSlots.add(addMinutesToTime(slot, 60));
+          bufferedSlots.add(slot);
+          
+          const bufferTimes = [
+            addMinutesToTime(slot, -60),
+            addMinutesToTime(slot, -30),
+            addMinutesToTime(slot, 30),
+            addMinutesToTime(slot, 60)
+          ];
+          
+          bufferTimes.forEach(bufferTime => {
+            if (bufferTime >= '08:00' && bufferTime <= '19:00') {
+              bufferedSlots.add(bufferTime);
+            }
+          });
         });
+        
         effectiveUnavailableSlots = Array.from(bufferedSlots);
       }
       
-      const allTimeSlots = generateAllTimeSlots();
+      console.log('Effective unavailable slots:', effectiveUnavailableSlots);
       
-      // NEW: Filter available slots based on duration
-      const durationInMinutes = formData.duration || 30; // Default to 30 mins if not selected
+      const allTimeSlots = generateAllTimeSlots();
+      const durationInMinutes = formData.duration || 30;
 
       const durationAwareAvailableSlots = allTimeSlots.filter(startTime => {
-        // A start time is valid if it and all its subsequent slots needed for the duration are available.
         for (let i = 0; i < durationInMinutes; i += 30) {
           const checkTime = addMinutesToTime(startTime, i);
+          
+          if (checkTime > '19:00') {
+            return false;
+          }
+          
           if (effectiveUnavailableSlots.includes(checkTime)) {
-            return false; // This time window is blocked.
+            console.log(`Slot ${startTime} conflicts with ${checkTime}`);
+            return false;
           }
         }
-        return true; // This time window is free.
+        return true;
       });
 
-      const timeSlots = durationAwareAvailableSlots.map(time => ({
+      let finalAvailableSlots = [...durationAwareAvailableSlots];
+      
+      // Check if booking for today using the same date formatting
+      const today = formatDateForComparison(new Date());
+      const isToday = selectedDateStr === today;
+      
+      console.log('Today:', today);
+      console.log('Is today:', isToday);
+
+      if (isToday) {
+        let bufferInMinutes = 30;
+        
+        if (formData.consultationType === 'tatap_muka') {
+          bufferInMinutes = 60;
+        }
+
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + bufferInMinutes);
+        const currentTimeWithBuffer = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        
+        console.log('Current time with buffer:', currentTimeWithBuffer);
+        
+        finalAvailableSlots = finalAvailableSlots.filter(startTime => startTime >= currentTimeWithBuffer);
+      }
+
+      console.log('Final available slots:', finalAvailableSlots);
+
+      const timeSlots = finalAvailableSlots.map(time => ({
         label: time,
         value: time
       }));
       
       setAvailableTimeSlots(timeSlots);
       
-      // Reset selected time if it's no longer available after duration/type change
-      if (!durationAwareAvailableSlots.includes(formData.consultationTime)) {
+      if (formData.consultationTime && !finalAvailableSlots.includes(formData.consultationTime)) {
+        console.log('Resetting consultation time as it\'s no longer available');
         setFormData(prev => ({ ...prev, consultationTime: '' }));
       }
+    } else {
+      setAvailableTimeSlots([]);
     }
   }, [formData.consultationDate, formData.duration, formData.consultationType, architectSchedules]);
+
+  // Also add this helper function to force refresh schedules when needed
+  const refreshSchedules = async () => {
+    console.log('Refreshing architect schedules...');
+    await fetchArchitectSchedules();
+  };
 
   const calculateTotal = (): number => {
     if (!formData.consultationType || !formData.duration || !architectData) {
@@ -279,6 +374,9 @@ const BookingConsultation: React.FC = () => {
   };
 
   const handleDateConfirm = (date: Date) => {
+    console.log('Date selected from picker:', date);
+    console.log('Formatted date:', formatDateForComparison(date));
+    
     setFormData(prev => ({ ...prev, consultationDate: date, consultationTime: '' }));
     setErrors(prev => ({ ...prev, consultationDate: undefined }));
     setDatePickerVisible(false);
@@ -308,8 +406,6 @@ const BookingConsultation: React.FC = () => {
     if (!startTime || !duration) return '';
     return addMinutesToTime(startTime, duration);
   };
-
-  // ... (the rest of the component remains largely the same)
 
   const formatScheduleSummary = (): string => {
     if (!formData.consultationDate || !formData.consultationTime || !formData.duration) {
@@ -366,59 +462,99 @@ const BookingConsultation: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    // Keep validation logic
     const consultationTypeError = validateConsultationType(formData.consultationType);
     const consultationDateError = validateConsultationDate(formData.consultationDate);
     const consultationTimeError = validateConsultationTime(formData.consultationTime);
     const durationError = validateDuration(formData.duration);
     
-    let googleMapsError, locationDescriptionError;
+    let googleMapsError;
     if (formData.consultationType === 'tatap_muka') {
       googleMapsError = validateGoogleMapsLink(formData.googleMapsLink);
     }
 
-    setErrors({
+    const currentErrors = {
       consultationType: consultationTypeError,
       consultationDate: consultationDateError,
       consultationTime: consultationTimeError,
       duration: durationError,
       googleMapsLink: googleMapsError,
-      locationDescription: locationDescriptionError,
-    });
+    };
 
-    if (consultationTypeError || consultationDateError || consultationTimeError || 
-        durationError || googleMapsError || locationDescriptionError) {
+    setErrors(currentErrors);
+
+    if (Object.values(currentErrors).some(error => error !== undefined)) {
       return;
     }
 
     setIsLoading(true);
-    try {
-      console.log('Booking data:', {
-        architectId: architectData?.id,
-        consultationType: formData.consultationType,
-        consultationDate: formData.consultationDate,
-        consultationTime: formData.consultationTime,
-        googleMapsLink: formData.googleMapsLink,
-        locationDescription: formData.locationDescription,
-        totalAmount: calculateTotal()
-      });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      Alert.alert(
-        'Booking Berhasil',
-        'Konsultasi Anda telah berhasil dijadwalkan. Kami akan menghubungi Anda segera.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/buildconsult/payment')
-          }
-        ]
-      );
+    try {
+      const [startHours, startMinutes] = formData.consultationTime.split(':').map(Number);
+      const startDate = new Date(formData.consultationDate!);
+      startDate.setHours(startHours, startMinutes, 0, 0);
+
+      const endDate = new Date(startDate.getTime() + formData.duration! * 60000);
+
+      // Log the dates being sent to API
+      console.log('Start date being sent:', formatDateToLocalISO(startDate));
+      console.log('End date being sent:', formatDateToLocalISO(endDate));
+
+      const payload = {
+        startDate: formatDateToLocalISO(startDate),
+        endDate: formatDateToLocalISO(endDate),
+        architectId: architectData!.id,
+        type: formData.consultationType === 'tatap_muka' ? 'offline' : 'online',
+        total: calculateTotal(),
+        ...(formData.consultationType === 'tatap_muka' && { location: formData.googleMapsLink }),
+      };
+
+      console.log('Booking payload:', payload);
+
+      const response = await buildconsultApi.createConsultation(payload as any);
+
+      if (response.code === 201 && response.data) {
+        const consultationId = response.data;
+        const createdAt = new Date().toISOString(); // The creation time is now.
+
+        // We no longer need to save the expiry date here.
+        // The payment page will handle its own timer logic.
+        await SecureStore.setItemAsync('currentConsultationId', consultationId);
+        
+        Alert.alert(
+          'Booking Berhasil',
+          'Konsultasi Anda telah dijadwalkan. Silakan lanjutkan ke pembayaran.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Refresh schedules after successful booking
+                fetchArchitectSchedules();
+                
+                router.push({
+                  pathname: '/buildconsult/payment',
+                  params: { 
+                    consultationId: consultationId,
+                    totalAmount: calculateTotal().toString(),
+                    createdAt: createdAt, // Pass the creation timestamp
+                  }
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Booking Gagal',
+          response.error || 'Terjadi kesalahan saat membuat booking. Silakan coba lagi.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('Booking failed:', error);
       Alert.alert(
         'Booking Gagal',
-        'Terjadi kesalahan saat memproses booking. Silakan coba lagi.',
+        'Terjadi kesalahan. Silakan periksa koneksi internet Anda dan coba lagi.',
         [{ text: 'OK' }]
       );
     } finally {

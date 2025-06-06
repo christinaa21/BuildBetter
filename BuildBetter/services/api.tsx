@@ -247,6 +247,56 @@ export interface GetArchitectSchedulesResponse {
   error?: string;
 }
 
+export interface CreateConsultationData {
+  startDate: string;
+  endDate: string;
+  architectId: string;
+  type: 'online' | 'offline';
+  location?: string;
+  total: number;
+}
+
+export interface CreateConsultationResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: string; // This will be the consultation ID
+  error?: string;
+}
+
+export interface GetConsultationByIdResponse {
+  code: number;
+  status: string;
+  data?: {
+    id: string;
+    userId: string;
+    userName: string;
+    userCity: string;
+    architectId: string;
+    architectName: string;
+    architectCity: string;
+    roomId: string | null;
+    type: 'online' | 'offline';
+    total: number;
+    status: 'waiting-for-payment' | 'scheduled' | 'in-progress' | 'ended' | 'cancelled' | 'waiting-for-confirmation';
+    reason: string | null;
+    location: string | null;
+    locationDescription: string | null;
+    startDate: string;
+    endDate: string;
+    createdAt: string;
+  };
+  error?: string;
+}
+
+export interface UploadPaymentResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: string;
+  error?: string;
+}
+
 // API client
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -551,6 +601,7 @@ export const buildconsultApi = {
       };
     }
   },
+  
   // Get architect schedules
   getArchitectSchedules: async (architectId: string): Promise<GetArchitectSchedulesResponse> => {
     try {
@@ -559,6 +610,63 @@ export const buildconsultApi = {
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         return error.response.data as GetArchitectSchedulesResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  }, 
+  
+  // NEW: Create a new consultation booking
+  createConsultation: async (data: CreateConsultationData): Promise<CreateConsultationResponse> => {
+    try {
+      const response = await apiClient.post<CreateConsultationResponse>('/consultations', data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as CreateConsultationResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+
+  // NEW: Get consultation by its ID
+  getConsultationById: async (consultationId: string): Promise<GetConsultationByIdResponse> => {
+    try {
+      const response = await apiClient.get<GetConsultationByIdResponse>(`/consultations/${consultationId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetConsultationByIdResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+};
+
+// NEW API object for payments
+export const paymentsApi = {
+  uploadPaymentProof: async (consultationId: string, data: FormData): Promise<UploadPaymentResponse> => {
+    try {
+      const response = await apiClient.post<UploadPaymentResponse>(`/payments/${consultationId}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as UploadPaymentResponse;
       }
       return {
         code: 500,

@@ -7,171 +7,168 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
-  BackHandler
+  BackHandler,
 } from 'react-native';
 import Button from '@/component/Button';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { buildconsultApi, GetConsultationByIdResponse } from '@/services/api'; // Import API and types
 
 type BookingState = 'loading' | 'success' | 'payment_failed' | 'schedule_failed';
-
-// Mock data for testing
-const MOCK_BOOKING_DATA = {
-  bookingId: 'BK001',
-  scheduleDate: '31 Mei 2025',
-  scheduleTime: '17:00 - 18:00',
-  type: 'Tatap Muka'
-};
-
-// Type for mock API response
-type MockApiResponse = {
-  code: number;
-  data?: string;
-  error?: string;
-};
-
-// Mock scenarios - you can change this to test different states
-const MOCK_SCENARIOS: Record<string, MockApiResponse> = {
-  success: { code: 200, data: 'booking confirmed' },
-  payment_failed: { code: 400, error: 'pembayaran gagal' },
-  schedule_failed: { code: 400, error: 'jadwal tidak tersedia' },
-};
+type ConsultationDetails = GetConsultationByIdResponse['data'];
 
 const ConsultationBookingLoading = () => {
-  const [bookingState, setBookingState] = useState<BookingState>('loading');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [mockScenario, setMockScenario] = useState<keyof typeof MOCK_SCENARIOS>('success');
   const router = useRouter();
-  
-  // Get booking parameters from URL params or use mock data
-  const params = useLocalSearchParams<{ 
-    bookingId: string; 
-    scheduleDate: string; 
-    scheduleTime: string;
-    scenario?: keyof typeof MOCK_SCENARIOS;
-  }>();
-  
-  const bookingId = params.bookingId || MOCK_BOOKING_DATA.bookingId;
-  const scheduleDate = params.scheduleDate || MOCK_BOOKING_DATA.scheduleDate;
-  const scheduleTime = params.scheduleTime || MOCK_BOOKING_DATA.scheduleTime;
-  const type = MOCK_BOOKING_DATA.type;
+  const params = useLocalSearchParams<{ consultationId: string }>();
+  const { consultationId } = params;
 
-  // Disable back button/gesture
+  const [bookingState, setBookingState] = useState<BookingState>('loading');
+  const [consultationDetails, setConsultationDetails] = useState<ConsultationDetails | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [rejectionMessage, setRejectionMessage] = useState('Jadwal tidak tersedia.');
+
+  // Effect to fetch consultation details to display on success screen
+  useEffect(() => {
+    if (!consultationId) return;
+
+    const fetchDetails = async () => {
+      try {
+        const response = await buildconsultApi.getConsultationById(consultationId);
+        if (response.code === 200 && response.data) {
+          setConsultationDetails(response.data);
+        } else {
+          console.error("Failed to fetch consultation details:", response.error);
+          // If we can't get details, we can't show a proper success screen.
+          // This could be a generic failure state.
+          setBookingState('payment_failed'); 
+          setRejectionMessage('Gagal memuat detail konsultasi.');
+        }
+      } catch (error) {
+        console.error("Error fetching consultation details:", error);
+        setBookingState('payment_failed');
+        setRejectionMessage('Gagal memuat detail konsultasi.');
+      }
+    };
+
+    fetchDetails();
+  }, [consultationId]);
+
+  // Effect for WebSocket connection
+  useEffect(() => {
+    // Don't start WebSocket if there's no consultationId
+    if (!consultationId) {
+      Alert.alert("Error", "ID Konsultasi tidak ditemukan.", [{ text: 'OK', onPress: () => router.replace('/(tabs)/home') }]);
+      return;
+    }
+
+    const webSocketUrl = `wss://build-better.site/ws/waiting-confirmation/${consultationId}`;
+    const ws = new WebSocket(webSocketUrl);
+
+    ws.onopen = () => {
+      console.log('WebSocket connection established.');
+      // The state is already 'loading', which is correct.
+    };
+
+    ws.onmessage = (event) => {
+      console.log('WebSocket message received:', event.data);
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === 'APPROVED') {
+          setBookingState('success');
+          // Close the connection as its purpose is fulfilled
+          ws.close(); 
+        } else if (message.type === 'REJECTED') {
+          // Based on your example, rejection is due to schedule.
+          // We can use the message from the server.
+          setRejectionMessage(message.message || 'Jadwal yang dipilih tidak tersedia.');
+          setBookingState('schedule_failed');
+          // Close the connection
+          ws.close();
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+        setRejectionMessage('Terjadi kesalahan yang tidak terduga.');
+        setBookingState('payment_failed'); // Use as a generic error state
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket Error:', error);
+      Alert.alert('Koneksi Gagal', 'Tidak dapat terhubung ke server untuk konfirmasi. Silakan periksa status konsultasi Anda secara manual nanti.');
+      setRejectionMessage('Gagal terhubung ke server.');
+      setBookingState('payment_failed'); // Use as a generic error state
+    };
+
+    ws.onclose = (event) => {
+      console.log('WebSocket connection closed:', event.code, event.reason);
+    };
+
+    // Cleanup function: close the WebSocket when the component unmounts
+    return () => {
+      // Check if the WebSocket is still open or connecting before trying to close
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    };
+  }, [consultationId, router]); // Dependency array
+
+  // Disable back button while loading
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        // Return true to prevent default back action
-        // You can show an alert or handle it differently based on state
         if (bookingState === 'loading') {
-          Alert.alert(
-            'Tunggu Sebentar',
-            'Pesanan sedang diproses, mohon tunggu...',
-            [{ text: 'OK' }]
-          );
+          Alert.alert('Tunggu Sebentar', 'Pesanan sedang diproses, mohon tunggu...');
         } else {
-          Alert.alert(
-            'Keluar?',
-            'Apakah Anda yakin ingin keluar dari halaman ini?',
-            [
-              { text: 'Batal', style: 'cancel' },
-              { text: 'Ya', onPress: () => router.replace('/(tabs)/home') }
-            ]
-          );
+          router.replace('/(tabs)/consult'); // Navigate to a safe page
         }
         return true; // Prevent default back action
       };
-
-      // Add event listener
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-      // Cleanup function
       return () => backHandler.remove();
     }, [bookingState, router])
   );
 
-  // Process booking when component mounts
-  useEffect(() => {
-    const processBooking = async () => {
-      try {
-        // Use scenario from params or default mock scenario
-        const scenario = params.scenario || mockScenario;
-        const mockResponse = MOCK_SCENARIOS[scenario];
-        
-        console.log('Mock booking processing...', { bookingId, scenario });
-        
-        if (mockResponse.code === 200) {
-          setBookingState('success');
-        } else if (mockResponse.error && (mockResponse.error.includes('payment') || mockResponse.error.includes('pembayaran'))) {
-          setBookingState('payment_failed');
-        } else if (mockResponse.error && (mockResponse.error.includes('schedule') || mockResponse.error.includes('jadwal'))) {
-          setBookingState('schedule_failed');
-        } else {
-          setBookingState('payment_failed');
-        }
-      } catch (error) {
-        console.error('Mock booking error:', error);
-        setBookingState('payment_failed');
-      }
-    };
+  // Helper to format date and time from the fetched details
+  const getFormattedSchedule = () => {
+    if (!consultationDetails) {
+      return { scheduleDate: '', scheduleTime: '' };
+    }
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    const scheduleDate = new Date(consultationDetails.startDate).toLocaleDateString('id-ID', options);
+    
+    const startTime = new Date(consultationDetails.startDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const endTime = new Date(consultationDetails.endDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    // Add delay to show loading state
-    const timer = setTimeout(() => {
-      processBooking();
-    }, 5000); // Increased to 3 seconds to better see loading state
+    return { scheduleDate, scheduleTime: `${startTime} - ${endTime}` };
+  };
 
-    return () => clearTimeout(timer);
-  }, [bookingId, params.scenario, mockScenario]);
+  const { scheduleDate, scheduleTime } = getFormattedSchedule();
 
   const handleGoToChat = () => {
-    console.log('Navigating to chat room...');
-    // router.replace('/chat-room');
-    Alert.alert('Mock Action', 'Would navigate to chat room');
+    // Here you would navigate to the chat room with the roomId
+    if(consultationDetails?.roomId) {
+        router.push(`/`);
+    } else {
+        Alert.alert("Info", "Room chat akan segera tersedia.");
+        router.replace('/(tabs)/consult');
+    }
   };
 
   const handleRetryPayment = () => {
-    setIsProcessing(true);
-    console.log('Retrying payment...');
-    // Simulate processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      Alert.alert('Mock Action', 'Would navigate to payment page');
-      router.back();
-    }, 1000);
+    // Go back to payment page, but it might be better to go to the consultation list
+    router.back();
   };
 
   const handleReschedule = () => {
-    setIsProcessing(true);
-    console.log('Rescheduling...');
-    // Simulate processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      Alert.alert('Mock Action', 'Would navigate to schedule selection');
-      // router.replace('/consultation-schedule');
-    }, 1000);
+    // Navigate back to schedule selection for the same architect
+    // You might need to pass architectId
+    router.replace(`/`);
   };
-
+  
   const handleBackToMain = () => {
-    console.log('Going back to main...');
-    Alert.alert('Mock Action', 'Would navigate to main page');
     router.replace('/(tabs)/home');
-  };
-
-  // Mock scenario switcher for testing (remove in production)
-  const handleScenarioSwitch = (scenario: keyof typeof MOCK_SCENARIOS) => {
-    setMockScenario(scenario);
-    setBookingState('loading');
-    
-    setTimeout(() => {
-      const mockResponse = MOCK_SCENARIOS[scenario];
-      if (mockResponse.code === 200) {
-        setBookingState('success');
-      } else if (mockResponse.error && mockResponse.error.includes('pembayaran')) {
-        setBookingState('payment_failed');
-      } else if (mockResponse.error && mockResponse.error.includes('jadwal')) {
-        setBookingState('schedule_failed');
-      }
-    }, 2000);
   };
 
   const renderContent = () => {
@@ -184,101 +181,70 @@ const ConsultationBookingLoading = () => {
               Tunggu sebentar ya!
             </Text>
             <Text style={[styles.subheader, theme.typography.body1]}>
-              Admin sedang mengonfirmasi pesananmu
+              Admin sedang mengonfirmasi pesananmu...
             </Text>
-            <ActivityIndicator 
-              size="large" 
-              color={theme.colors.customGreen[300]} 
-              style={styles.loader}
-            />
+            <ActivityIndicator size="large" color={theme.colors.customGreen[300]} style={styles.loader} />
           </View>
         );
 
       case 'success':
         return (
-          <>
-            <View style={styles.centerContainer}>
-              <MaterialIcons name="check-circle" size={120} color={theme.colors.customGreen[300]} />
-              <Text style={[styles.header, theme.typography.title]}>
-                Selamat, pemesanan berhasil!
-              </Text>
+          <View style={styles.centerContainer}>
+            <MaterialIcons name="check-circle" size={120} color={theme.colors.customGreen[300]} />
+            <Text style={[styles.header, theme.typography.title]}>
+              Selamat, pemesanan berhasil!
+            </Text>
+            {consultationDetails && (
               <Text style={[styles.subheader, theme.typography.body1]}>
-                Segera lakukan konsultasi {type} di tanggal {scheduleDate} pukul {scheduleTime}
+                Segera lakukan konsultasi {consultationDetails.type} pada {scheduleDate} pukul {scheduleTime}
               </Text>
-              <View style={styles.buttonContainer}>
-                <Button
-                    title="Ke Room Chat"
-                    variant="primary"
-                    onPress={handleGoToChat}
-                />
-              </View>
+            )}
+            <View style={styles.buttonContainer}>
+              <Button title="Lihat Detail Konsultasi" variant="primary" onPress={() => router.replace('/(tabs)/consult')} />
             </View>
-          </>
+          </View>
         );
 
-      case 'payment_failed':
+      case 'payment_failed': // Generic failure
         return (
-          <>
-            <View style={styles.centerContainer}>
-              <MaterialIcons name="credit-card-off" size={120} color={theme.colors.customGray[100]} />
-              <Text style={[styles.header, theme.typography.title]}>
-                Yah, pembayaranmu gagal!
-              </Text>
-              <Text style={[styles.subheader, theme.typography.body1]}>
-                Mau coba unggah bukti pembayaran ulang?
-              </Text>
-              <View style={styles.buttonContainer}>
-                <Button
-                    title={isProcessing ? 'Loading...' : 'Unggah Ulang'}
-                    variant="primary"
-                    onPress={handleRetryPayment}
-                    disabled={isProcessing}
-                />
-                <Text style={[styles.cancelText, theme.typography.body2]}>
-                    Mau batalkan pemesanan saja?{'\n'}
-                    <Text 
-                    style={styles.cancelLink}
-                    onPress={handleBackToMain}
-                    >
-                    Klik disini untuk kembali ke beranda
-                    </Text>
-                </Text>
-              </View>
+          <View style={styles.centerContainer}>
+            <MaterialIcons name="error-outline" size={120} color={theme.colors.customGray[100]} />
+            <Text style={[styles.header, theme.typography.title]}>
+              Oops, terjadi kesalahan!
+            </Text>
+            <Text style={[styles.subheader, theme.typography.body1]}>
+              {rejectionMessage}
+            </Text>
+            <View style={styles.buttonContainer}>
+              <Button title="Kembali ke Konsultasi" variant="primary" onPress={() => router.replace('/(tabs)/consult')} />
             </View>
-          </>
+          </View>
         );
 
       case 'schedule_failed':
         return (
-          <>
-            <View style={styles.centerContainer}>
-              <MaterialIcons name="event-busy" size={120} color={theme.colors.customGray[100]} />
-              <Text style={[styles.header, theme.typography.title]}>
-                Yah, jadwalnya tidak tersedia!
-              </Text>
-              <Text style={[styles.subheader, theme.typography.body1]}>
-                Mau pilih jadwal ulang?
-              </Text>
-              <View style={styles.buttonContainer}>
-                <Button
-                    title={isProcessing ? 'Loading...' : 'Pilih Ulang'}
-                    variant="primary"
-                    onPress={handleReschedule}
-                    disabled={isProcessing}
-                />
+          <View style={styles.centerContainer}>
+            <MaterialIcons name="event-busy" size={120} color={theme.colors.customGray[100]} />
+            <Text style={[styles.header, theme.typography.title]}>
+              Yah, jadwalnya tidak tersedia!
+            </Text>
+            <Text style={[styles.subheader, theme.typography.body1]}>
+              {rejectionMessage}
+            </Text>
+            <View style={styles.buttonContainer}>
+              <Button
+                title={isProcessing ? 'Loading...' : 'Pilih Ulang Jadwal'}
+                variant="primary"
+                onPress={handleReschedule}
+                disabled={isProcessing}
+              />
+              <TouchableOpacity onPress={handleBackToMain}>
                 <Text style={[styles.cancelText, theme.typography.body2]}>
-                    Mau batalkan pemesanan saja?{'\n'}
-                    <Text 
-                    style={styles.cancelLink}
-                    onPress={handleBackToMain}
-                    >
-                    Klik disini untuk kembali ke beranda dan{'\n'}
-                    admin akan mengembalikan uangmu
-                    </Text>
+                  Kembali ke beranda
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
-          </>
+          </View>
         );
 
       default:
@@ -290,33 +256,6 @@ const ConsultationBookingLoading = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {renderContent()}
-        
-        {/* Mock Scenario Switcher - Remove in production */}
-        {__DEV__ && (
-          <View style={styles.mockControls}>
-            <Text style={styles.mockTitle}>Mock Scenarios (Dev Only):</Text>
-            <View style={styles.mockButtons}>
-              <TouchableOpacity 
-                style={[styles.mockButton, { backgroundColor: theme.colors.customGreen[300] }]}
-                onPress={() => handleScenarioSwitch('success')}
-              >
-                <Text style={styles.mockButtonText}>Success</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.mockButton, { backgroundColor: '#ff6b6b' }]}
-                onPress={() => handleScenarioSwitch('payment_failed')}
-              >
-                <Text style={styles.mockButtonText}>Payment Failed</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.mockButton, { backgroundColor: '#4ecdc4' }]}
-                onPress={() => handleScenarioSwitch('schedule_failed')}
-              >
-                <Text style={styles.mockButtonText}>Schedule Failed</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -330,10 +269,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
+    justifyContent: 'center',
   },
   centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
@@ -345,55 +283,21 @@ const styles = StyleSheet.create({
   subheader: {
     color: theme.colors.customOlive[50],
     textAlign: 'center',
+    lineHeight: 22,
   },
   loader: {
-    marginTop: 16,
+    marginTop: 24,
   },
   buttonContainer: {
-    marginVertical: 16,
+    marginTop: 32,
+    width: '100%',
     alignItems: 'center',
   },
   cancelText: {
-    color: theme.colors.customOlive[50],
-    textAlign: 'center',
-    marginTop: 32,
-  },
-  cancelLink: {
     color: theme.colors.customGreen[300],
-    textDecorationLine: 'underline',
-  },
-  // Mock controls styles (remove in production)
-  mockControls: {
-    position: 'absolute',
-    bottom: 10,
-    left: 24,
-    right: 24,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 16,
-    borderRadius: 8,
-  },
-  mockTitle: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
     textAlign: 'center',
-  },
-  mockButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  mockButton: {
-    flex: 1,
-    padding: 8,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  mockButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+    marginTop: 24,
+    textDecorationLine: 'underline',
   },
 });
 

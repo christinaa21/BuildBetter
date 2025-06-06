@@ -86,18 +86,20 @@ const formatApiTimeRange = (startDate: string, endDate: string): string => {
   return `${formatTime(start)} - ${formatTime(end)}`;
 };
 
-const convertConsultationToHistoryCard = (consultation: ConsultationWithArchitect): HistoryCardProps => {
+const convertConsultationToHistoryCardProps = (consultation: ConsultationWithArchitect) => {
   return {
     id: consultation.id,
     orderCreatedAt: formatApiDateToIndonesian(consultation.createdAt),
+    createdAtISO: consultation.createdAt, // Pass the raw ISO string
     tanggal: formatApiDateToIndonesian(consultation.startDate),
     waktu: formatApiTimeRange(consultation.startDate, consultation.endDate),
-    arsitek: consultation.architect.username,
+    arsitek: consultation.architect, // Pass the full architect object
     metode: mapApiTypeToDisplayMetode(consultation.type),
     kota: consultation.architect.city,
     totalPembayaran: consultation.total,
     status: mapApiStatusToDisplayStatus(consultation.status),
-    onHubungiLagi: () => console.log('Hubungi Lagi', consultation.id)
+    reason: consultation.reason, // Pass the reason
+    roomId: consultation.roomId, // Pass the roomId
   };
 };
 
@@ -151,7 +153,7 @@ export default function History() {
 
   // Convert consultations to history card format
   const historyData = useMemo(() => {
-    return consultations.map(convertConsultationToHistoryCard);
+    return consultations.map(convertConsultationToHistoryCardProps);
   }, [consultations]);
 
   // Filter history data
