@@ -21,7 +21,7 @@ import theme from '@/app/theme';
 import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
 import Dropdown from '@/component/Dropdown';
-import { buildconsultApi } from '@/services/api';
+import { buildconsultApi, Architect, GetConsultationByIdResponse } from '@/services/api';
 import * as SecureStore from 'expo-secure-store';
 
 // Define interfaces for the API response
@@ -97,14 +97,6 @@ const addMinutesToTime = (time: string, minutes: number): string => {
   return `${newHours}:${newMins}`;
 };
 
-// Helper function to format date and time into ISO string
-const toISOStringWithTimezone = (date: Date, time: string): string => {
-  const [hours, minutes] = time.split(':').map(Number);
-  const newDate = new Date(date);
-  newDate.setHours(hours, minutes, 0, 0);
-  return newDate.toISOString().slice(0, 19);
-};
-
 const formatDateToLocalISO = (date: Date): string => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -119,10 +111,11 @@ const formatDateToLocalISO = (date: Date): string => {
 const BookingConsultation: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const mode = params.mode as 'reschedule' | undefined;
+  const isRescheduleMode = mode === 'reschedule';
+  const consultationIdToReschedule = params.consultationId as string | undefined;
   
-  const architectData: ArchitectData = params.architectData 
-    ? JSON.parse(params.architectData as string) 
-    : null;
+  const [architectData, setArchitectData] = useState<Architect | null>(null);
 
   const [formData, setFormData] = useState<BookingFormData>({
     consultationType: '',
@@ -140,39 +133,78 @@ const BookingConsultation: React.FC = () => {
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [architectSchedules, setArchitectSchedules] = useState<ArchitectSchedule[]>([]);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<{label: string, value: string}[]>([]);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
-    if (!architectData) {
-      Alert.alert('Error', 'Architect data not found', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
-    }
-  }, [architectData, router]);
+    const loadInitialData = async () => {
+      setIsPageLoading(true);
+      try {
+        if (isRescheduleMode && consultationIdToReschedule) {
+          // --- RESCHEDULE MODE ---
+          // Fetch the details of the consultation that needs rescheduling
+          const res = await buildconsultApi.getConsultationById(consultationIdToReschedule);
+          if (res.code === 200 && res.data) {
+            const consultation = res.data;
+            
+            // We need the architect's rates, which aren't in the consultation details.
+            // We must fetch the architect's full profile.
+            const archRes = await buildconsultApi.getArchitects(); // Assuming this gets all architects
+            const currentArchitect = archRes.data?.find(a => a.id === consultation.architectId);
+            
+            if (!currentArchitect) throw new Error("Architect data could not be loaded.");
+            
+            setArchitectData(currentArchitect);
 
-  const fetchArchitectSchedules = async () => {
-    if (!architectData?.id) return;
+            // Pre-fill the form with the old data. Date and time are cleared so user must re-select.
+            const durationMinutes = (new Date(consultation.endDate).getTime() - new Date(consultation.startDate).getTime()) / 60000;
+            setFormData({
+              consultationType: consultation.type === 'offline' ? 'tatap_muka' : 'chat',
+              consultationDate: null, // User must re-pick date
+              consultationTime: '',    // User must re-pick time
+              duration: durationMinutes,
+              googleMapsLink: consultation.location || '',
+              locationDescription: consultation.locationDescription || '',
+              architectOnlyInBandung: consultation.type === 'offline',
+            });
+            // Fetch schedules for this architect
+            await fetchArchitectSchedules(consultation.architectId);
+          } else {
+            throw new Error(res.error || "Failed to load consultation details.");
+          }
+        } else {
+          // --- NEW BOOKING MODE (Original logic) ---
+          const initialArchitectData = params.architectData ? JSON.parse(params.architectData as string) : null;
+          if (!initialArchitectData) throw new Error("Architect data not found.");
+          
+          setArchitectData(initialArchitectData);
+          await fetchArchitectSchedules(initialArchitectData.id);
+        }
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to load data.', [{ text: 'OK', onPress: () => router.back() }]);
+      } finally {
+        setIsPageLoading(false);
+      }
+    };
+    
+    loadInitialData();
+  }, [mode, consultationIdToReschedule, params.architectData]);
 
+  const fetchArchitectSchedules = async (id: string) => {
+    if (!id) return;
+    setScheduleLoading(true);
     try {
-      setScheduleLoading(true);
-      const response = await buildconsultApi.getArchitectSchedules(architectData.id);
-      
+      const response = await buildconsultApi.getArchitectSchedules(id);
       if (response.code === 200 && response.data) {
         setArchitectSchedules(response.data);
       } else {
-        console.error('Failed to fetch architect schedules:', response.error);
         Alert.alert('Error', 'Failed to load architect availability');
       }
     } catch (error) {
-      console.error('Error fetching architect schedules:', error);
       Alert.alert('Error', 'Failed to load architect availability');
     } finally {
       setScheduleLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchArchitectSchedules();
-  }, [architectData?.id]);
 
   const generateAllTimeSlots = (): string[] => {
     const slots = [];
@@ -308,12 +340,6 @@ const BookingConsultation: React.FC = () => {
       setAvailableTimeSlots([]);
     }
   }, [formData.consultationDate, formData.duration, formData.consultationType, architectSchedules]);
-
-  // Also add this helper function to force refresh schedules when needed
-  const refreshSchedules = async () => {
-    console.log('Refreshing architect schedules...');
-    await fetchArchitectSchedules();
-  };
 
   const calculateTotal = (): number => {
     if (!formData.consultationType || !formData.duration || !architectData) {
@@ -488,81 +514,64 @@ const BookingConsultation: React.FC = () => {
     }
 
     setIsLoading(true);
-
     try {
       const [startHours, startMinutes] = formData.consultationTime.split(':').map(Number);
       const startDate = new Date(formData.consultationDate!);
       startDate.setHours(startHours, startMinutes, 0, 0);
-
       const endDate = new Date(startDate.getTime() + formData.duration! * 60000);
 
-      // Log the dates being sent to API
-      console.log('Start date being sent:', formatDateToLocalISO(startDate));
-      console.log('End date being sent:', formatDateToLocalISO(endDate));
+      if (isRescheduleMode) {
+        // --- RESCHEDULE LOGIC ---
+        const payload = {
+            startDate: formatDateToLocalISO(startDate),
+            endDate: formatDateToLocalISO(endDate),
+        };
+        // NOTE: Assumes you have an `updateConsultation` function in your api.tsx
+        const response = await buildconsultApi.updateConsultation(consultationIdToReschedule!, payload);
 
-      const payload = {
-        startDate: formatDateToLocalISO(startDate),
-        endDate: formatDateToLocalISO(endDate),
-        architectId: architectData!.id,
-        type: formData.consultationType === 'tatap_muka' ? 'offline' : 'online',
-        total: calculateTotal(),
-        ...(formData.consultationType === 'tatap_muka' && { location: formData.googleMapsLink }),
-      };
+        if (response.code === 200) {
+            Alert.alert(
+              'Jadwal Diajukan Ulang',
+              'Jadwal baru Anda telah diajukan. Mohon tunggu konfirmasi dari admin.',
+              // Navigate back to the loading page to wait for new confirmation
+              [{ text: 'OK', onPress: () => router.replace({ pathname: '/buildconsult/loading', params: { consultationId: consultationIdToReschedule }}) }]
+            );
+        } else {
+            Alert.alert('Update Gagal', response.error || 'Gagal memperbarui jadwal.');
+        }
 
-      console.log('Booking payload:', payload);
-
-      const response = await buildconsultApi.createConsultation(payload as any);
-
-      if (response.code === 201 && response.data) {
-        const consultationId = response.data;
-        const createdAt = new Date().toISOString(); // The creation time is now.
-
-        // We no longer need to save the expiry date here.
-        // The payment page will handle its own timer logic.
-        await SecureStore.setItemAsync('currentConsultationId', consultationId);
-        
-        Alert.alert(
-          'Booking Berhasil',
-          'Konsultasi Anda telah dijadwalkan. Silakan lanjutkan ke pembayaran.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Refresh schedules after successful booking
-                fetchArchitectSchedules();
-                
-                router.push({
-                  pathname: '/buildconsult/payment',
-                  params: { 
-                    consultationId: consultationId,
-                    totalAmount: calculateTotal().toString(),
-                    createdAt: createdAt, // Pass the creation timestamp
-                  }
-                });
-              }
-            }
-          ]
-        );
       } else {
-        Alert.alert(
-          'Booking Gagal',
-          response.error || 'Terjadi kesalahan saat membuat booking. Silakan coba lagi.',
-          [{ text: 'OK' }]
-        );
+        // --- CREATE NEW BOOKING LOGIC (Original logic) ---
+        const payload = {
+            startDate: formatDateToLocalISO(startDate),
+            endDate: formatDateToLocalISO(endDate),
+            architectId: architectData!.id,
+            type: formData.consultationType === 'tatap_muka' ? 'offline' : 'online',
+            total: calculateTotal(),
+            ...(formData.consultationType === 'tatap_muka' && { location: formData.googleMapsLink }),
+        };
+        const response = await buildconsultApi.createConsultation(payload as any);
+        
+        if (response.code === 201 && response.data) {
+            const newConsultationId = response.data;
+            const createdAt = new Date().toISOString();
+            router.push({
+                pathname: '/buildconsult/payment',
+                params: { consultationId: newConsultationId, totalAmount: calculateTotal().toString(), createdAt }
+            });
+        } else {
+            Alert.alert('Booking Gagal', response.error || 'Terjadi kesalahan.');
+        }
       }
     } catch (error) {
-      console.error('Booking failed:', error);
-      Alert.alert(
-        'Booking Gagal',
-        'Terjadi kesalahan. Silakan periksa koneksi internet Anda dan coba lagi.',
-        [{ text: 'OK' }]
-      );
+        Alert.alert('Gagal', 'Terjadi kesalahan. Coba lagi.');
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
-  if (!architectData) {
+  // MODIFIED: Show a full-page loader while fetching initial data
+  if (isPageLoading || !architectData) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -622,7 +631,7 @@ const BookingConsultation: React.FC = () => {
           <View>
             <View style={styles.sectionTitle}>
               <Text style={theme.typography.subtitle1}>
-                Pesan Sesi Konsultasi
+                 {isRescheduleMode ? 'Pilih Ulang Jadwal Konsultasi' : 'Pesan Sesi Konsultasi'}
               </Text>
               <Text style={[{color: theme.colors.customOlive[50], fontSize: 13, fontWeight: '400'}]}>
                 Konsultasi via chat: {formatCurrency(architectData.rateOnline)} per 30 menit {'\n'}
@@ -637,6 +646,7 @@ const BookingConsultation: React.FC = () => {
               value={formData.consultationType}
               onChange={handleConsultationTypeChange}
               error={errors.consultationType}
+              disabled={isRescheduleMode}
             />
 
             <View style={styles.inputGroup}>
@@ -681,6 +691,7 @@ const BookingConsultation: React.FC = () => {
                 value={formData.duration?.toString() || ''}
                 onChange={handleDurationChange}
                 error={errors.duration}
+                disabled={isRescheduleMode}
               />
             )}
 
@@ -758,12 +769,12 @@ const BookingConsultation: React.FC = () => {
               Total pembayaran
             </Text>
             <Text style={[theme.typography.title, styles.paymentAmount]}>
-              {formatCurrency(calculateTotal())}
+              {isRescheduleMode ? 'Sudah Dibayar' : formatCurrency(calculateTotal())}
             </Text>
           </View>
           <View style={styles.buttonContainer}>
             <Button
-              title={isLoading ? 'Memproses...' : 'Pesan'}
+              title={isLoading ? 'Memproses...' : (isRescheduleMode ? 'Jadwalkan Ulang' : 'Pesan')}
               variant="primary"
               onPress={handleSubmit}
               disabled={isLoading || !isFormValid()}

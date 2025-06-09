@@ -61,11 +61,20 @@ export default function BuildConsultPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter consultations based on search query
-  const filteredConsultations = consultations.filter(consultation =>
-    consultation.architect.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    consultation.architect.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Define allowed statuses for display
+  const allowedStatuses: Consultation['status'][] = ['scheduled', 'in-progress', 'ended'];
+
+  // Filter consultations based on search query AND status
+  const filteredConsultations = consultations.filter(consultation => {
+    // First filter by allowed statuses
+    const hasAllowedStatus = allowedStatuses.includes(consultation.status);
+    
+    // Then filter by search query (architect name or city)
+    const matchesSearch = consultation.architect.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         consultation.architect.city.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return hasAllowedStatus && matchesSearch;
+  });
 
   useEffect(() => {
     fetchConsultationHistory();
@@ -134,7 +143,13 @@ export default function BuildConsultPage() {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by newest first
 
       setConsultations(consultationsWithArchitects);
-      setHasConsultationHistory(consultationsWithArchitects.length > 0);
+      
+      // Check if there are any consultations with allowed statuses
+      const hasDisplayableConsultations = consultationsWithArchitects.some(consultation => 
+        allowedStatuses.includes(consultation.status)
+      );
+      
+      setHasConsultationHistory(hasDisplayableConsultations);
       setError(null);
 
     } catch (err) {

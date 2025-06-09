@@ -6,250 +6,312 @@ import {
   Text,
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
   BackHandler,
 } from 'react-native';
 import Button from '@/component/Button';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { buildconsultApi, GetConsultationByIdResponse } from '@/services/api'; // Import API and types
+import { buildconsultApi, GetConsultationByIdResponse, paymentsApi } from '@/services/api';
 
 type BookingState = 'loading' | 'success' | 'payment_failed' | 'schedule_failed';
 type ConsultationDetails = GetConsultationByIdResponse['data'];
 
 const ConsultationBookingLoading = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ consultationId: string }>();
-  const { consultationId } = params;
+  const params = useLocalSearchParams<{
+    consultationId: string;
+    totalAmount: string;
+    createdAt: string;
+  }>();
+  const { consultationId, totalAmount } = params;
 
   const [bookingState, setBookingState] = useState<BookingState>('loading');
   const [consultationDetails, setConsultationDetails] = useState<ConsultationDetails | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [rejectionMessage, setRejectionMessage] = useState('Jadwal tidak tersedia.');
 
-  // Effect to fetch consultation details to display on success screen
   useEffect(() => {
     if (!consultationId) return;
-
     const fetchDetails = async () => {
       try {
         const response = await buildconsultApi.getConsultationById(consultationId);
         if (response.code === 200 && response.data) {
           setConsultationDetails(response.data);
+          // If the status is already decided when landing here, update the UI
+          switch(response.data.status) {
+            case 'scheduled':
+              setBookingState('success');
+              break;
+            case 'cancelled':
+              if (response.data.reason?.includes('invalid')) {
+                setBookingState('payment_failed');
+              } else if (response.data.reason?.includes('unavailable')) {
+                setBookingState('schedule_failed');
+              }
+              break;
+          }
         } else {
           console.error("Failed to fetch consultation details:", response.error);
-          // If we can't get details, we can't show a proper success screen.
-          // This could be a generic failure state.
-          setBookingState('payment_failed'); 
-          setRejectionMessage('Gagal memuat detail konsultasi.');
         }
       } catch (error) {
         console.error("Error fetching consultation details:", error);
-        setBookingState('payment_failed');
-        setRejectionMessage('Gagal memuat detail konsultasi.');
       }
     };
-
     fetchDetails();
   }, [consultationId]);
 
-  // Effect for WebSocket connection
   useEffect(() => {
-    // Don't start WebSocket if there's no consultationId
-    if (!consultationId) {
-      Alert.alert("Error", "ID Konsultasi tidak ditemukan.", [{ text: 'OK', onPress: () => router.replace('/(tabs)/home') }]);
+    if (!consultationId || bookingState !== 'loading') {
       return;
     }
 
     const webSocketUrl = `wss://build-better.site/ws/waiting-confirmation/${consultationId}`;
     const ws = new WebSocket(webSocketUrl);
 
-    ws.onopen = () => {
-      console.log('WebSocket connection established.');
-      // The state is already 'loading', which is correct.
-    };
+    ws.onopen = () => console.log('WebSocket connection established.');
 
     ws.onmessage = (event) => {
       console.log('WebSocket message received:', event.data);
       try {
-        const message = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
         
-        if (message.type === 'APPROVED') {
+        if (data.type === 'APPROVED') {
           setBookingState('success');
-          // Close the connection as its purpose is fulfilled
-          ws.close(); 
-        } else if (message.type === 'REJECTED') {
-          // Based on your example, rejection is due to schedule.
-          // We can use the message from the server.
-          setRejectionMessage(message.message || 'Jadwal yang dipilih tidak tersedia.');
-          setBookingState('schedule_failed');
-          // Close the connection
-          ws.close();
+        } else if (data.type === 'REJECTED') {
+          const rejectionMsg = (data.message || '').toLowerCase();
+          if (rejectionMsg.includes('proof of payment is invalid')) {
+            setBookingState('payment_failed');
+          } else if (rejectionMsg.includes('architect is unavailable')) {
+            setBookingState('schedule_failed');
+          } else {
+            console.warn("Unknown rejection reason received:", data.message);
+            setBookingState('payment_failed');
+          }
         }
+        ws.close();
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
-        setRejectionMessage('Terjadi kesalahan yang tidak terduga.');
-        setBookingState('payment_failed'); // Use as a generic error state
+        setBookingState('payment_failed');
       }
     };
 
     ws.onerror = (error) => {
       console.error('WebSocket Error:', error);
-      Alert.alert('Koneksi Gagal', 'Tidak dapat terhubung ke server untuk konfirmasi. Silakan periksa status konsultasi Anda secara manual nanti.');
-      setRejectionMessage('Gagal terhubung ke server.');
-      setBookingState('payment_failed'); // Use as a generic error state
+      Alert.alert('Koneksi Gagal', 'Tidak dapat terhubung ke server untuk konfirmasi. Silakan cek status di halaman riwayat.');
+      setBookingState('payment_failed');
     };
 
-    ws.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.code, event.reason);
-    };
+    ws.onclose = (event) => console.log('WebSocket connection closed:', event.code, event.reason);
 
-    // Cleanup function: close the WebSocket when the component unmounts
     return () => {
-      // Check if the WebSocket is still open or connecting before trying to close
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }
     };
-  }, [consultationId, router]); // Dependency array
+  }, [consultationId, router, bookingState]);
 
-  // Disable back button while loading
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
         if (bookingState === 'loading') {
-          Alert.alert('Tunggu Sebentar', 'Pesanan sedang diproses, mohon tunggu...');
+          Alert.alert('Tunggu Sebentar', 'Pesanan sedang diproses, mohon tunggu...', [{ text: 'OK' }]);
         } else {
-          router.replace('/(tabs)/consult'); // Navigate to a safe page
+            router.replace('/(tabs)/consult');
         }
-        return true; // Prevent default back action
+        return true;
       };
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => backHandler.remove();
     }, [bookingState, router])
   );
 
-  // Helper to format date and time from the fetched details
   const getFormattedSchedule = () => {
-    if (!consultationDetails) {
-      return { scheduleDate: '', scheduleTime: '' };
-    }
+    if (!consultationDetails) return { scheduleDate: '', scheduleTime: '', type: '' };
+    
     const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
     const scheduleDate = new Date(consultationDetails.startDate).toLocaleDateString('id-ID', options);
     
     const startTime = new Date(consultationDetails.startDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
     const endTime = new Date(consultationDetails.endDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const type = consultationDetails.type === 'offline' ? 'Tatap Muka' : 'Online';
 
-    return { scheduleDate, scheduleTime: `${startTime} - ${endTime}` };
+    return { scheduleDate, scheduleTime: `${startTime} - ${endTime}`, type };
   };
 
-  const { scheduleDate, scheduleTime } = getFormattedSchedule();
+  const { scheduleDate, scheduleTime, type } = getFormattedSchedule();
 
   const handleGoToChat = () => {
-    // Here you would navigate to the chat room with the roomId
-    if(consultationDetails?.roomId) {
-        router.push(`/`);
-    } else {
-        Alert.alert("Info", "Room chat akan segera tersedia.");
-        router.replace('/(tabs)/consult');
+    router.replace('/(tabs)/consult');
+  };
+
+  // MODIFIED: This function now calls the repay API and navigates back to payment page
+  const handleRetryPayment = async () => {
+    setIsProcessing(true);
+    try {
+      if (!consultationId) return;
+      const response = await paymentsApi.repay(consultationId);
+      if (response.code === 200) {
+        Alert.alert(
+          "Berhasil", 
+          "Anda mendapat kesempatan lagi untuk membayar. Silakan unggah bukti pembayaran yang valid dalam 10 menit.",
+          [{ text: 'OK', onPress: () => {
+            router.replace({
+              pathname: '/buildconsult/payment',
+              params: { consultationId, totalAmount },
+            });
+          }}]
+        );
+      } else {
+        Alert.alert("Gagal", response.error || "Gagal memproses permintaan pembayaran ulang.");
+      }
+    } catch (error) {
+      console.error("Repay failed:", error);
+      Alert.alert("Error", "Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleRetryPayment = () => {
-    // Go back to payment page, but it might be better to go to the consultation list
-    router.back();
+  const handleReschedule = () => {
+    router.replace({
+      pathname: '/buildconsult/booking',
+      params: { mode: 'reschedule', consultationId },
+    });
   };
 
-  const handleReschedule = () => {
-    // Navigate back to schedule selection for the same architect
-    // You might need to pass architectId
-    router.replace(`/`);
-  };
-  
   const handleBackToMain = () => {
     router.replace('/(tabs)/home');
   };
 
+  const handleCancelConsultation = (refundMessage: boolean = false) => {
+    if (!consultationId) return;
+
+    const alertMessage = refundMessage 
+      ? "Uang Anda akan dikembalikan oleh admin. Apakah Anda yakin ingin membatalkan pemesanan ini?"
+      : "Apakah Anda yakin ingin membatalkan pemesanan ini?";
+
+    Alert.alert(
+      "Konfirmasi Pembatalan",
+      alertMessage,
+      [
+        { text: "Tidak", style: "cancel" },
+        { 
+          text: "Ya, Batalkan", 
+          style: "destructive",
+          onPress: async () => {
+            setIsProcessing(true);
+            try {
+              const response = await buildconsultApi.cancelConsultation(consultationId);
+              if (response.code === 200) {
+                Alert.alert(
+                  "Pemesanan Dibatalkan",
+                  "Pemesanan Anda telah berhasil dibatalkan.",
+                  [{ text: "OK", onPress: () => router.replace('/(tabs)/consult') }]
+                );
+              } else {
+                Alert.alert("Gagal", response.error || "Gagal membatalkan pemesanan. Silakan coba lagi.");
+              }
+            } catch (error) {
+              console.error("Cancellation failed:", error);
+              Alert.alert("Error", "Terjadi kesalahan jaringan saat mencoba membatalkan.");
+            } finally {
+              setIsProcessing(false);
+            }
+          }
+        },
+      ]
+    );
+  };
+
   const renderContent = () => {
     switch (bookingState) {
-      case 'loading':
-        return (
-          <View style={styles.centerContainer}>
-            <MaterialIcons name="hourglass-empty" size={120} color={theme.colors.customGreen[300]} />
-            <Text style={[styles.header, theme.typography.title]}>
-              Tunggu sebentar ya!
-            </Text>
-            <Text style={[styles.subheader, theme.typography.body1]}>
-              Admin sedang mengonfirmasi pesananmu...
-            </Text>
-            <ActivityIndicator size="large" color={theme.colors.customGreen[300]} style={styles.loader} />
-          </View>
-        );
-
-      case 'success':
-        return (
-          <View style={styles.centerContainer}>
-            <MaterialIcons name="check-circle" size={120} color={theme.colors.customGreen[300]} />
-            <Text style={[styles.header, theme.typography.title]}>
-              Selamat, pemesanan berhasil!
-            </Text>
-            {consultationDetails && (
-              <Text style={[styles.subheader, theme.typography.body1]}>
-                Segera lakukan konsultasi {consultationDetails.type} pada {scheduleDate} pukul {scheduleTime}
+        case 'loading':
+          return (
+            <View style={styles.centerContainer}>
+              <MaterialIcons name="hourglass-empty" size={120} color={theme.colors.customGreen[300]} />
+              <Text style={[styles.header, theme.typography.title]}>
+                Tunggu sebentar ya!
               </Text>
-            )}
-            <View style={styles.buttonContainer}>
-              <Button title="Lihat Detail Konsultasi" variant="primary" onPress={() => router.replace('/(tabs)/consult')} />
+              <Text style={[styles.subheader, theme.typography.body1]}>
+                Admin sedang mengonfirmasi pesananmu
+              </Text>
+              <ActivityIndicator size="large" color={theme.colors.customGreen[300]} style={styles.loader} />
             </View>
-          </View>
-        );
-
-      case 'payment_failed': // Generic failure
-        return (
-          <View style={styles.centerContainer}>
-            <MaterialIcons name="error-outline" size={120} color={theme.colors.customGray[100]} />
-            <Text style={[styles.header, theme.typography.title]}>
-              Oops, terjadi kesalahan!
-            </Text>
-            <Text style={[styles.subheader, theme.typography.body1]}>
-              {rejectionMessage}
-            </Text>
-            <View style={styles.buttonContainer}>
-              <Button title="Kembali ke Konsultasi" variant="primary" onPress={() => router.replace('/(tabs)/consult')} />
+          );
+  
+        case 'success':
+          return (
+            <View style={styles.centerContainer}>
+              <MaterialIcons name="check-circle" size={120} color={theme.colors.customGreen[300]} />
+              <Text style={[styles.header, theme.typography.title]}>
+                Selamat, pemesanan berhasil!
+              </Text>
+              <Text style={[styles.subheader, theme.typography.body1]}>
+                Segera lakukan konsultasi {type} di tanggal {scheduleDate} pukul {scheduleTime}
+              </Text>
+              <View style={styles.buttonContainer}>
+                <Button title="Ke Room Chat" variant="primary" onPress={handleGoToChat} />
+              </View>
             </View>
-          </View>
-        );
-
-      case 'schedule_failed':
-        return (
-          <View style={styles.centerContainer}>
-            <MaterialIcons name="event-busy" size={120} color={theme.colors.customGray[100]} />
-            <Text style={[styles.header, theme.typography.title]}>
-              Yah, jadwalnya tidak tersedia!
-            </Text>
-            <Text style={[styles.subheader, theme.typography.body1]}>
-              {rejectionMessage}
-            </Text>
-            <View style={styles.buttonContainer}>
-              <Button
-                title={isProcessing ? 'Loading...' : 'Pilih Ulang Jadwal'}
-                variant="primary"
-                onPress={handleReschedule}
-                disabled={isProcessing}
-              />
-              <TouchableOpacity onPress={handleBackToMain}>
+          );
+  
+        case 'payment_failed':
+          return (
+            <View style={styles.centerContainer}>
+              <MaterialIcons name="credit-card-off" size={120} color={theme.colors.customGray[100]} />
+              <Text style={[styles.header, theme.typography.title]}>
+                Yah, pembayaranmu gagal!
+              </Text>
+              <Text style={[styles.subheader, theme.typography.body1]}>
+                Mau coba unggah bukti pembayaran ulang?
+              </Text>
+              <View style={styles.buttonContainer}>
+                <Button
+                  title={isProcessing ? 'Memproses...' : 'Unggah Ulang'}
+                  variant="primary"
+                  onPress={handleRetryPayment}
+                  disabled={isProcessing}
+                />
                 <Text style={[styles.cancelText, theme.typography.body2]}>
-                  Kembali ke beranda
+                  Mau batalkan pemesanan saja?{'\n'}
+                  <Text style={styles.cancelLink} onPress={() => handleCancelConsultation(false)} disabled={isProcessing}>
+                    Klik disini untuk kembali ke beranda
+                  </Text>
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        );
-
-      default:
-        return null;
-    }
+          );
+  
+        case 'schedule_failed':
+          return (
+            <View style={styles.centerContainer}>
+              <MaterialIcons name="event-busy" size={120} color={theme.colors.customGray[100]} />
+              <Text style={[styles.header, theme.typography.title]}>
+                Yah, jadwalnya tidak tersedia!
+              </Text>
+              <Text style={[styles.subheader, theme.typography.body1]}>
+                Mau pilih jadwal ulang?
+              </Text>
+              <View style={styles.buttonContainer}>
+                <Button
+                  title={isProcessing ? 'Loading...' : 'Pilih Ulang'}
+                  variant="primary"
+                  onPress={handleReschedule}
+                  disabled={isProcessing}
+                />
+                <Text style={[styles.cancelText, theme.typography.body2]}>
+                  Mau batalkan pemesanan saja?{'\n'}
+                  <Text style={styles.cancelLink} onPress={() => handleCancelConsultation(false)} disabled={isProcessing}>
+                    Klik disini untuk kembali ke beranda dan admin akan mengembalikan uangmu
+                  </Text>
+                </Text>
+              </View>
+            </View>
+          );
+  
+        default:
+          return null;
+      }
   };
 
   return (
@@ -262,43 +324,46 @@ const ConsultationBookingLoading = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.customWhite[50],
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-  },
-  centerContainer: {
-    alignItems: 'center',
-  },
-  header: {
-    color: theme.colors.customGreen[300],
-    marginTop: 24,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  subheader: {
-    color: theme.colors.customOlive[50],
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  loader: {
-    marginTop: 24,
-  },
-  buttonContainer: {
-    marginTop: 32,
-    width: '100%',
-    alignItems: 'center',
-  },
-  cancelText: {
-    color: theme.colors.customGreen[300],
-    textAlign: 'center',
-    marginTop: 24,
-    textDecorationLine: 'underline',
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.customWhite[50],
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: 24,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      color: theme.colors.customGreen[300],
+      marginTop: 24,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    subheader: {
+      color: theme.colors.customOlive[50],
+      textAlign: 'center',
+    },
+    loader: {
+      marginTop: 16,
+    },
+    buttonContainer: {
+      marginVertical: 16,
+      width: '80%', // Added to constrain button width a bit
+      alignItems: 'center',
+    },
+    cancelText: {
+      color: theme.colors.customOlive[50],
+      textAlign: 'center',
+      marginTop: 32,
+    },
+    cancelLink: {
+      color: theme.colors.customGreen[300],
+      textDecorationLine: 'underline',
+    },
+  });
 
 export default ConsultationBookingLoading;

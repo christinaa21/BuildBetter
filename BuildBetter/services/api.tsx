@@ -222,6 +222,7 @@ export interface Consultation {
   total: number;
   status: 'waiting-for-payment' | 'waiting-for-confirmation' | 'cancelled' | 'scheduled' | 'in-progress' | 'ended';
   reason: string | null;
+  paymentAttempt: number;
   startDate: string;
   endDate: string;
   createdAt: string;
@@ -652,6 +653,58 @@ export const buildconsultApi = {
       };
     }
   },
+  
+  // NEW: Update an existing consultation (for rescheduling)
+  updateConsultation: async (consultationId: string, data: { startDate: string, endDate: string }): Promise<any> => {
+      try {
+          // We assume a PATCH request is used for updates
+          const response = await apiClient.patch(`/consultations/${consultationId}`, data);
+          return response.data;
+      } catch (error) {
+          if (axios.isAxiosError(error) && error.response) {
+              return error.response.data;
+          }
+          return {
+              code: 500,
+              status: 'ERROR',
+              error: 'Network or server error. Please check your connection and try again.'
+          };
+      }
+  },
+
+  // NEW: Create a new consultation booking
+  refreshConsultations: async (): Promise<CreateConsultationResponse> => {
+    try {
+      const response = await apiClient.post<CreateConsultationResponse>('/consultations/refresh');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as CreateConsultationResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
+  // NEW: Create a new consultation booking
+  cancelConsultation: async (consultationId: string): Promise<CreateConsultationResponse> => {
+    try {
+      const response = await apiClient.post<CreateConsultationResponse>(`/consultations/${consultationId}/cancel`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as CreateConsultationResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
 };
 
 // NEW API object for payments
@@ -663,6 +716,40 @@ export const paymentsApi = {
           'Content-Type': 'multipart/form-data',
         },
       });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as UploadPaymentResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
+  // NEW: Create a new consultation booking
+  markExpired: async (consultationId: string): Promise<UploadPaymentResponse> => {
+    try {
+      const response = await apiClient.post<UploadPaymentResponse>(`/payments/${consultationId}/expired`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as UploadPaymentResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
+  // NEW: Create a new consultation booking
+  repay: async (consultationId: string): Promise<UploadPaymentResponse> => {
+    try {
+      const response = await apiClient.post<UploadPaymentResponse>(`/payments/${consultationId}/repay`);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {

@@ -42,7 +42,7 @@ interface FormErrors {
 const PaymentPage: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { consultationId, totalAmount, createdAt: createdAtParam } = params;
+  const { consultationId, totalAmount } = params;
 
   const [formData, setFormData] = useState<PaymentFormData>({
     paymentProof: null,
@@ -54,8 +54,9 @@ const PaymentPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [fetchedCreatedAt, setFetchedCreatedAt] = useState<string | null>(null);
 
-  // Countdown timer initialization
+  // MODIFIED: Countdown timer initialization
   useEffect(() => {
     const initializeTimer = async () => {
       try {
@@ -64,34 +65,49 @@ const PaymentPage: React.FC = () => {
           return;
         }
 
-        let consultationCreationTime: string | undefined = createdAtParam as string;
+        console.log("Fetching consultation details for timer...");
+        const response = await buildconsultApi.getConsultationById(consultationId as string);
 
-        // Fallback: If createdAt is not passed via params (e.g., deep link), fetch it.
-        if (!consultationCreationTime) {
-          console.log("createdAt not found in params, fetching consultation details...");
-          const response = await buildconsultApi.getConsultationById(consultationId as string);
-          if (response.code === 200 && response.data) {
-            consultationCreationTime = response.data.createdAt;
+        if (response.code === 200 && response.data) {
+          // --- START OF THE FIX ---
+          let consultationCreationTime = response.data.createdAt;
+          
+          console.log(`[Timer] Raw createdAt from API: ${consultationCreationTime}`);
+
+          // BEST PRACTICE: Ensure the timestamp string is treated as UTC.
+          // If the string doesn't end with 'Z' (for UTC) or have a timezone offset, append 'Z'.
+          if (!consultationCreationTime.endsWith('Z') && !/[-+]\d{2}:\d{2}$/.test(consultationCreationTime)) {
+            consultationCreationTime += 'Z';
+            console.log(`[Timer] Normalized to UTC: ${consultationCreationTime}`);
+          }
+          // --- END OF THE FIX ---
+
+          setFetchedCreatedAt(response.data.createdAt); // Store original for submission
+          
+          const expiryTime = new Date(consultationCreationTime).getTime() + 10 * 60 * 1000;
+          const now = Date.now();
+          const remainingSeconds = Math.max(0, Math.floor((expiryTime - now) / 1000));
+          
+          // Add some debugging logs to see the final calculation
+          console.log(`[Timer] Expiry Timestamp (ms): ${expiryTime}`);
+          console.log(`[Timer] Current Timestamp (ms): ${now}`);
+          console.log(`[Timer] Remaining Seconds: ${remainingSeconds}`);
+          
+          if (remainingSeconds > 0) {
+              setTimeRemaining(remainingSeconds);
           } else {
+              setTimeRemaining(0);
+              // This part is correct, it will trigger if the time is already expired on load.
+              await paymentsApi.markExpired(consultationId as string);
+              Alert.alert(
+                  'Waktu Habis',
+                  'Waktu pembayaran untuk sesi ini telah habis. Silakan cek riwayat untuk info lebih lanjut.',
+                  [{ text: 'OK', onPress: () => router.replace('/(tabs)/consult') }]
+              );
+          }
+        } else {
             Alert.alert("Error", "Could not fetch consultation details for timer.", [{ text: "OK", onPress: () => router.back() }]);
             return;
-          }
-        }
-        
-        // Calculate expiry time: 10 minutes after creation
-        const expiryTime = new Date(consultationCreationTime!).getTime() + 10 * 60 * 1000;
-        const now = Date.now();
-        const remainingSeconds = Math.max(0, Math.floor((expiryTime - now) / 1000));
-        
-        if (remainingSeconds > 0) {
-            setTimeRemaining(remainingSeconds);
-        } else {
-            setTimeRemaining(0);
-            Alert.alert(
-                'Waktu Habis',
-                'Waktu pembayaran untuk sesi ini telah habis. Silakan melakukan booking ulang.',
-                [{ text: 'OK', onPress: () => router.replace('/(tabs)/consult') }]
-            );
         }
 
       } catch (error) {
@@ -103,29 +119,39 @@ const PaymentPage: React.FC = () => {
     };
     
     initializeTimer();
-  }, [consultationId, createdAtParam, router]);
+  }, [consultationId, router]);
 
-  // Countdown timer effect
+  // MODIFIED: Countdown timer effect with expiry logic
   useEffect(() => {
     if (timeRemaining === null || timeRemaining <= 0) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
-        if (prev! <= 1) {
+        if (prev === null) {
           clearInterval(timer);
+          return null;
+        }
+        if (prev <= 1) {
+          clearInterval(timer);
+          // Time is up, call the markExpired API
+          console.log('Timer expired. Marking consultation as expired.');
+          paymentsApi.markExpired(consultationId as string)
+            .then(res => console.log('Marked as expired:', res.message))
+            .catch(err => console.error('Failed to mark as expired:', err));
+
           Alert.alert(
             'Waktu Habis',
-            'Waktu pembayaran telah habis. Silakan melakukan booking ulang.',
+            'Waktu pembayaran telah habis. Pemesanan Anda telah dibatalkan. Silakan cek riwayat untuk info lebih lanjut.',
             [{ text: 'OK', onPress: () => router.replace('/(tabs)/consult') }]
           );
           return 0;
         }
-        return prev! - 1;
+        return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining, router]);
+  }, [timeRemaining, router, consultationId]);
 
   // Format countdown timer
   const formatTime = (seconds: number): string => {
@@ -152,7 +178,7 @@ const PaymentPage: React.FC = () => {
     return str;
   }
 
-  // Validation functions
+  // Validation functions (unchanged)
   const validatePaymentProof = (proof: ImagePicker.ImagePickerAsset | null) => {
     if (!proof) return 'Harap unggah bukti pembayaran';
     return undefined;
@@ -170,41 +196,29 @@ const PaymentPage: React.FC = () => {
 
   const handlePaymentProofUpload = async () => {
     try {
-      // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Izin Diperlukan',
-          'Aplikasi memerlukan izin untuk mengakses galeri foto.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Izin Diperlukan', 'Aplikasi memerlukan izin untuk mengakses galeri foto.');
         return;
       }
-
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
         allowsEditing: true,
         aspect: [9, 19],
         quality: 0.8,
       });
-
       if (!result.canceled && result.assets[0]) {
         setFormData(prev => ({ ...prev, paymentProof: result.assets[0] }));
         setErrors(prev => ({ ...prev, paymentProof: undefined }));
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert(
-        'Error',
-        'Terjadi kesalahan saat memilih gambar. Silakan coba lagi.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Terjadi kesalahan saat memilih gambar.');
     }
   };
 
+  // handleSubmit (modified to navigate with fetchedCreatedAt)
   const handleSubmit = async () => {
-    // Keep validation logic
     const paymentProofError = validatePaymentProof(formData.paymentProof);
     const paymentMethodError = validatePaymentMethod(formData.paymentMethod);
     const senderNameError = validateSenderName(formData.senderName);
@@ -238,40 +252,28 @@ const PaymentPage: React.FC = () => {
       data.append('paymentMethod', formData.paymentMethod);
       data.append('sender', formData.senderName);
       
-      // The response here contains the confirmation.
-      // The 'consultationId' is the one we already have from params.
       const response = await paymentsApi.uploadPaymentProof(consultationId as string, data);
 
       if (response.code === 200) {
-        // Clear stored data on success
         await SecureStore.deleteItemAsync('currentConsultationId');
         await SecureStore.deleteItemAsync('paymentExpiredDate');
-
         setTimeRemaining(null); 
         
-        // *** THIS IS THE MODIFIED PART ***
-        // Instead of an alert, navigate directly to the loading page.
-        // We use 'replace' to prevent the user from going back to the payment page.
-        // We pass the consultationId so the loading page can use it.
         router.replace({
           pathname: '/buildconsult/loading',
-          params: { consultationId: consultationId as string }
+          params: { 
+            consultationId: consultationId as string,
+            totalAmount: totalAmount,
+            createdAt: fetchedCreatedAt // Use the fetched createdAt
+          }
         });
 
       } else {
-        Alert.alert(
-          'Konfirmasi Gagal',
-          response.error || 'Terjadi kesalahan saat memproses konfirmasi pembayaran.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Konfirmasi Gagal', response.error || 'Terjadi kesalahan saat memproses konfirmasi pembayaran.');
       }
     } catch (error) {
       console.error('Payment confirmation failed:', error);
-      Alert.alert(
-        'Konfirmasi Gagal',
-        'Terjadi kesalahan. Periksa koneksi internet Anda dan coba lagi.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Konfirmasi Gagal', 'Terjadi kesalahan. Periksa koneksi internet Anda dan coba lagi.');
     } finally {
       setIsLoading(false);
     }
@@ -287,6 +289,7 @@ const PaymentPage: React.FC = () => {
     );
   }
 
+  // --- JSX is largely unchanged, so it's omitted for brevity but should be kept as is in your file ---
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -431,7 +434,7 @@ const PaymentPage: React.FC = () => {
               title={isLoading ? 'Memproses...' : 'Selanjutnya'}
               variant="primary"
               onPress={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || timeRemaining === 0}
             />
           </View>
         </ScrollView>
@@ -440,6 +443,7 @@ const PaymentPage: React.FC = () => {
   );
 };
 
+// --- Styles are unchanged, so they are omitted for brevity but should be kept as is ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,

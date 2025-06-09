@@ -35,27 +35,19 @@ export default function Architects() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [isCityDrawerVisible, setCityDrawerVisible] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Pagination state for handling large datasets
+  const [displayedCount, setDisplayedCount] = useState(20); // Show 20 initially
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Get all available cities from location data
   const cityOptions = getAllCities();
 
-  // Initialize default filter with user's city
-  useEffect(() => {
-    if (isInitialLoad && userCity && cityOptions.includes(userCity)) {
-      setSelectedCities([userCity]);
-      setIsInitialLoad(false);
-    } else if (isInitialLoad) {
-      // If user doesn't have a city or city is not in options, just mark as initialized
-      setIsInitialLoad(false);
-    }
-  }, [userCity, cityOptions, isInitialLoad]);
-
-  // Filter architects based on search query and selected cities
+  // Sort and filter architects based on search query and selected cities
   const filteredArchitects = useMemo(() => {
     let filtered = architects;
 
-    // Apply city filter
+    // Apply city filter only if cities are selected
     if (selectedCities.length > 0) {
       filtered = filtered.filter((architect: Architect) =>
         selectedCities.includes(architect.city)
@@ -70,11 +62,46 @@ export default function Architects() {
       );
     }
 
-    return filtered;
-  }, [architects, searchQuery, selectedCities]);
+    // Sort by user's city first, then alphabetically by username
+    const sortedFiltered = filtered.sort((a, b) => {
+      // If user has a city, prioritize architects from user's city
+      if (userCity) {
+        const aIsUserCity = a.city === userCity;
+        const bIsUserCity = b.city === userCity;
+        
+        if (aIsUserCity && !bIsUserCity) return -1;
+        if (!aIsUserCity && bIsUserCity) return 1;
+      }
+      
+      // Secondary sort by username (alphabetical)
+      return a.username.localeCompare(b.username);
+    });
+
+    return sortedFiltered;
+  }, [architects, searchQuery, selectedCities, userCity]);
+
+  // Get architects to display (with pagination)
+  const displayedArchitects = useMemo(() => {
+    return filteredArchitects.slice(0, displayedCount);
+  }, [filteredArchitects, displayedCount]);
+
+  const hasMoreArchitects = displayedCount < filteredArchitects.length;
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    // Reset displayed count when searching
+    setDisplayedCount(20);
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMoreArchitects) {
+      setLoadingMore(true);
+      // Simulate loading delay (remove if not needed)
+      setTimeout(() => {
+        setDisplayedCount(prev => prev + 10); // Load 10 more
+        setLoadingMore(false);
+      }, 300);
+    }
   };
 
   useEffect(() => {
@@ -139,7 +166,7 @@ export default function Architects() {
   };
 
   const getCityFilterButtonText = () => {
-    if (selectedCities.length === 0) return "Kota";
+    if (selectedCities.length === 0) return "Filter Kota";
     if (selectedCities.length === 1) return selectedCities[0];
     return `${selectedCities.length} Kota Terpilih`;
   };
@@ -147,6 +174,8 @@ export default function Architects() {
   // Handle city filter changes
   const handleCityFilterApply = (values: string[]) => {
     setSelectedCities(values);
+    // Reset displayed count when filtering
+    setDisplayedCount(20);
   };
   
   if (loading) {
@@ -168,11 +197,18 @@ export default function Architects() {
             Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
           </Text>
           
+          {/* Show user city priority info */}
+          {userCity && (
+            <Text style={[theme.typography.caption, styles.priorityText]}>
+              Arsitek dari {userCity} ditampilkan terlebih dahulu.
+            </Text>
+          )}
+          
           <View style={styles.searchAndFilterContainer}>
             <View style={styles.searchFieldContainer}>
               <Textfield
                 icon={<MaterialIcons name="search" size={16}/>}
-                placeholder="Cari arsitek di sini..."
+                placeholder="Cari arsitek..."
                 paddingVertical={12}
                 borderRadius={100}
                 height={50}
@@ -182,7 +218,10 @@ export default function Architects() {
             </View>
             
             <Pressable 
-              style={styles.cityFilterButton} 
+              style={[
+                styles.cityFilterButton,
+                selectedCities.length > 0 && styles.cityFilterButtonActive
+              ]} 
               onPress={() => setCityDrawerVisible(true)}
             >
               <Text style={styles.cityFilterButtonText} numberOfLines={1}>
@@ -219,7 +258,16 @@ export default function Architects() {
           </View>
         )}
 
-        {filteredArchitects.map((architect) => (
+        {/* Results count */}
+        {filteredArchitects.length > 0 && (
+          <View style={styles.resultsContainer}>
+            <Text style={styles.resultsText}>
+              Menampilkan {displayedArchitects.length} dari {filteredArchitects.length} arsitek
+            </Text>
+          </View>
+        )}
+
+        {displayedArchitects.map((architect) => (
           <ArchitectCard
             key={architect.id}
             {...architect}
@@ -227,6 +275,30 @@ export default function Architects() {
             onBookPress={() => handleBooking(architect)}
           />
         ))}
+
+        {/* Load more button */}
+        {hasMoreArchitects && (
+          <View style={styles.loadMoreContainer}>
+            <Pressable 
+              style={styles.loadMoreButton} 
+              onPress={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={theme.colors.customGreen[300]} />
+              ) : (
+                <>
+                  <Text style={styles.loadMoreText}>Muat Lebih Banyak</Text>
+                  <MaterialIcons 
+                    name="keyboard-arrow-down" 
+                    size={20} 
+                    color={theme.colors.customGreen[300]} 
+                  />
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
       <MultiSelectDrawer
@@ -263,16 +335,21 @@ const styles = StyleSheet.create({
   infoChip: {
     paddingHorizontal: 8,
     gap: 2,
-    paddingVertical: 12,
+    paddingTop: 12,
   },
   infoChipText: {
     color: theme.colors.customOlive[50],
+  },
+  priorityText: {
+    color: theme.colors.customGreen[400],
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   searchAndFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    marginTop: 2,
   },
   searchFieldContainer: {
     flex: 1,
@@ -289,11 +366,43 @@ const styles = StyleSheet.create({
     minWidth: 80,
     justifyContent: 'center',
   },
+  cityFilterButtonActive: {
+    backgroundColor: theme.colors.customGreen[50],
+    borderColor: theme.colors.customGreen[300],
+  },
   cityFilterButtonText: {
     ...theme.typography.caption,
     color: theme.colors.customOlive[50],
     marginRight: 4,
     textAlign: 'center',
+  },
+  resultsContainer: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  resultsText: {
+    ...theme.typography.caption,
+    color: theme.colors.customGray[200],
+  },
+  loadMoreContainer: {
+    paddingBottom: 40,
+    paddingTop: 16,
+    alignItems: 'center',
+  },
+  loadMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.customWhite[50],
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.customGreen[200],
+    gap: 8,
+  },
+  loadMoreText: {
+    ...theme.typography.body2,
+    color: theme.colors.customGreen[300],
   },
   infoButton: {
     position: 'absolute',

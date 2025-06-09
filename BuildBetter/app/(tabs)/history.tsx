@@ -1,5 +1,4 @@
-// screens/History.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Platform, Pressable, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -10,8 +9,9 @@ import HistoryCard, { HistoryCardProps, HistoryStatus, HistoryMetode } from '@/c
 import MultiSelectDrawer from '@/component/MultiSelectDrawer';
 import Button from '@/component/Button';
 import { buildconsultApi, Architect } from '@/services/api';
+import { useFocusEffect } from 'expo-router';
 
-// Define consultation types based on API response
+// MODIFIED: Added paymentAttempt and reason to the interface
 interface Consultation {
   id: string;
   userId: string;
@@ -21,6 +21,7 @@ interface Consultation {
   total: number;
   status: 'waiting-for-payment' | 'waiting-for-confirmation' | 'cancelled' | 'scheduled' | 'in-progress' | 'ended';
   reason: string | null;
+  paymentAttempt: number; // New field
   startDate: string;
   endDate: string;
   createdAt: string;
@@ -33,130 +34,105 @@ interface ConsultationWithArchitect extends Consultation {
 const STATUS_FILTER_OPTIONS: HistoryStatus[] = ['Menunggu pembayaran', 'Menunggu konfirmasi', 'Dijadwalkan', 'Berlangsung', 'Berakhir', 'Dibatalkan'];
 const METODE_FILTER_OPTIONS: HistoryMetode[] = ['Chat', 'Tatap Muka'];
 
-// Helper functions for mapping API data to display format
+// Helper functions (Unchanged)
 const mapApiStatusToDisplayStatus = (apiStatus: string): HistoryStatus => {
   switch (apiStatus) {
-    case 'waiting-for-payment':
-      return 'Menunggu pembayaran';
-    case 'waiting-for-confirmation':
-      return 'Menunggu konfirmasi';
-    case 'scheduled':
-      return 'Dijadwalkan';
-    case 'in-progress':
-      return 'Berlangsung';
-    case 'ended':
-      return 'Berakhir';
-    case 'cancelled':
-      return 'Dibatalkan';
-    default:
-      return 'Berakhir';
+    case 'waiting-for-payment': return 'Menunggu pembayaran';
+    case 'waiting-for-confirmation': return 'Menunggu konfirmasi';
+    case 'scheduled': return 'Dijadwalkan';
+    case 'in-progress': return 'Berlangsung';
+    case 'ended': return 'Berakhir';
+    case 'cancelled': return 'Dibatalkan';
+    default: return 'Berakhir';
   }
 };
-
 const mapApiTypeToDisplayMetode = (apiType: string): HistoryMetode => {
   return apiType === 'online' ? 'Chat' : 'Tatap Muka';
 };
-
 const formatApiDateToIndonesian = (isoDateString: string): string => {
   const date = new Date(isoDateString);
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-  
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const day = date.getDate();
   const month = months[date.getMonth()];
   const year = date.getFullYear();
-  
   return `${day.toString().padStart(2, '0')} ${month} ${year}`;
 };
-
 const formatApiTimeRange = (startDate: string, endDate: string): string => {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('id-ID', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
-  };
-  
+  const formatTime = (date: Date) => date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
   return `${formatTime(start)} - ${formatTime(end)}`;
 };
 
-const convertConsultationToHistoryCardProps = (consultation: ConsultationWithArchitect) => {
+// MODIFIED: Pass new fields to HistoryCardProps
+const convertConsultationToHistoryCardProps = (consultation: ConsultationWithArchitect): HistoryCardProps => {
   return {
     id: consultation.id,
     orderCreatedAt: formatApiDateToIndonesian(consultation.createdAt),
-    createdAtISO: consultation.createdAt, // Pass the raw ISO string
+    createdAtISO: consultation.createdAt,
     tanggal: formatApiDateToIndonesian(consultation.startDate),
     waktu: formatApiTimeRange(consultation.startDate, consultation.endDate),
-    arsitek: consultation.architect, // Pass the full architect object
+    arsitek: consultation.architect,
     metode: mapApiTypeToDisplayMetode(consultation.type),
     kota: consultation.architect.city,
     totalPembayaran: consultation.total,
     status: mapApiStatusToDisplayStatus(consultation.status),
-    reason: consultation.reason, // Pass the reason
-    roomId: consultation.roomId, // Pass the roomId
+    reason: consultation.reason,
+    paymentAttempt: consultation.paymentAttempt, // Pass new field
+    roomId: consultation.roomId,
   };
 };
 
-// Date parsing functions (updated for Indonesian format)
+// ... other helper functions like parseConsultationDate, formatDateForDisplay are unchanged ...
 const parseConsultationDate = (dateString: string): Date | null => {
-  const months: { [key: string]: number } = {
-    'Januari': 0, 'Februari': 1, 'Maret': 2, 'April': 3, 'Mei': 4, 'Juni': 5,
-    'Juli': 6, 'Agustus': 7, 'September': 8, 'Oktober': 9, 'November': 10, 'Desember': 11
-  };
-  const parts = dateString.split(' ');
-  if (parts.length === 3) {
-    const day = parseInt(parts[0], 10);
-    const monthName = parts[1];
-    const year = parseInt(parts[2], 10);
-    const month = months[monthName];
-    if (!isNaN(day) && month !== undefined && !isNaN(year)) {
-      return new Date(year, month, day);
+    const months: { [key: string]: number } = { 'Januari': 0, 'Februari': 1, 'Maret': 2, 'April': 3, 'Mei': 4, 'Juni': 5, 'Juli': 6, 'Agustus': 7, 'September': 8, 'Oktober': 9, 'November': 10, 'Desember': 11 };
+    const parts = dateString.split(' ');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const monthName = parts[1];
+      const year = parseInt(parts[2], 10);
+      const month = months[monthName];
+      if (!isNaN(day) && month !== undefined && !isNaN(year)) return new Date(year, month, day);
     }
-  }
-  console.warn(`Failed to parse date: ${dateString}`);
-  return null;
+    return null;
+};
+const formatDateForDisplay = (date: Date | null): string => {
+    if (!date) return "Pilih";
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    return `${day} ${monthNames[date.getMonth()]} ${year}`;
 };
 
-const formatDateForDisplay = (date: Date | null): string => {
-  if (!date) return "Pilih";
-  const day = date.getDate();
-  const year = date.getFullYear();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-                      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  return `${day} ${monthNames[date.getMonth()]} ${year}`;
-};
 
 export default function History() {
-  // State for API data
   const [consultations, setConsultations] = useState<ConsultationWithArchitect[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // State for filtering
   const [selectedStatuses, setSelectedStatuses] = useState<HistoryStatus[]>([]);
   const [selectedMetodes, setSelectedMetodes] = useState<HistoryMetode[]>([]);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   
-  // State for UI
   const [isDateFilterModalVisible, setDateFilterModalVisible] = useState(false);
   const [isStartDatePickerVisible, setStartDatePickerVisibility] = useState(false);
   const [isEndDatePickerVisible, setEndDatePickerVisibility] = useState(false);
   const [isStatusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const [isMetodeDrawerVisible, setMetodeDrawerVisible] = useState(false);
 
-  // Convert consultations to history card format
+  // Use useFocusEffect to refresh data every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchConsultationHistory();
+    }, [])
+  );
+
+  // ... other state and memo hooks are unchanged ...
   const historyData = useMemo(() => {
     return consultations.map(convertConsultationToHistoryCardProps);
   }, [consultations]);
 
-  // Filter history data
   const filteredHistory = useMemo(() => {
     return historyData.filter(item => {
       if (selectedStatuses.length > 0 && !selectedStatuses.includes(item.status)) return false;
@@ -177,17 +153,11 @@ export default function History() {
     });
   }, [historyData, selectedStatuses, selectedMetodes, startDate, endDate]);
 
-  // Fetch consultation history from API
-  useEffect(() => {
-    fetchConsultationHistory();
-  }, []);
-
   const fetchConsultationHistory = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Check if user is logged in
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) {
         setError('Please log in to view consultation history.');
@@ -195,51 +165,49 @@ export default function History() {
         return;
       }
 
-      // Fetch consultations
+      // Step 1: Refresh consultations first to update expired ones
+      try {
+        const refreshResponse = await buildconsultApi.refreshConsultations();
+        if (refreshResponse.code !== 200) {
+          console.warn('Failed to refresh consultations:', refreshResponse.error);
+        }
+      } catch (refreshError) {
+        console.warn('Error refreshing consultations:', refreshError);
+      }
+
+      // Step 2: Fetch the (now updated) list of consultations
       const consultationResponse = await buildconsultApi.getConsultations();
       
       if (consultationResponse.code !== 200 || !consultationResponse.data) {
         setError(consultationResponse.error || 'Failed to fetch consultation history');
         setLoading(false);
+        console.log(consultationResponse.data);
         return;
       }
 
       const consultationsData: Consultation[] = consultationResponse.data;
 
-      // If no consultations found
       if (consultationsData.length === 0) {
         setConsultations([]);
         setLoading(false);
         return;
       }
 
-      // Fetch architects to match with consultations
+      // Step 3: Fetch architects to match with consultations (Unchanged)
       const architectResponse = await buildconsultApi.getArchitects();
-      
       if (architectResponse.code !== 200 || !architectResponse.data) {
         setError(architectResponse.error || 'Failed to fetch architect data');
         setLoading(false);
         return;
       }
-
       const architectsData: Architect[] = architectResponse.data;
-
-      // Create a map for quick architect lookup
       const architectMap = new Map<string, Architect>();
-      architectsData.forEach(architect => {
-        architectMap.set(architect.id, architect);
-      });
+      architectsData.forEach(architect => architectMap.set(architect.id, architect));
 
-      // Combine consultation data with architect data
       const consultationsWithArchitects: ConsultationWithArchitect[] = consultationsData
         .map(consultation => {
           const architect = architectMap.get(consultation.architectId);
-          if (architect) {
-            return {
-              ...consultation,
-              architect
-            };
-          }
+          if (architect) return { ...consultation, architect };
           return null;
         })
         .filter((item): item is ConsultationWithArchitect => item !== null)
@@ -255,7 +223,9 @@ export default function History() {
     }
   };
 
-  // Date handling functions
+  // ... all other handler functions and JSX are unchanged ...
+  // ... They correctly use the state and data structures we've set up ...
+  // (Full JSX is omitted for brevity but should be kept as is in your file)
   const showStartDatePicker = () => setStartDatePickerVisibility(true);
   const hideStartDatePicker = () => setStartDatePickerVisibility(false);
   const handleStartDateConfirm = (date: Date) => {
@@ -432,113 +402,113 @@ export default function History() {
     </SafeAreaView>
   );
 }
-
+// Styles are unchanged
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.customWhite[50],
-  },
-  headerContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: theme.colors.customWhite[50],
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.customGray[50],
-  },
-  pageTitle: {
-    ...theme.typography.title,
-    color: theme.colors.customGreen[300],
-    textAlign: 'center',
-  },
-  topFiltersBar: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    backgroundColor: theme.colors.customWhite[50],
-    paddingHorizontal: 16,
-  },
-  filtersScrollViewContent: {
-    alignItems: 'center',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.customWhite[50],
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: theme.colors.customGreen[200],
-    marginHorizontal: 4,
-    height: 36,
-  },
-  filterButtonText: {
-    ...theme.typography.caption,
-    color: theme.colors.customOlive[50],
-    marginRight: 4,
-  },
-  // Date Filter Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  dateModalContentContainer: {
-     backgroundColor: theme.colors.customWhite[50],
-     borderTopLeftRadius: 16,
-     borderTopRightRadius: 16,
-  },
-  dateModalContent: {
-    padding:24
-  },
-  dateModalTitle: {
-    ...theme.typography.subtitle1,
-    color: theme.colors.customOlive[50],
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  datePickerButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.customGray[100],
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: theme.colors.customWhite[50],
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  datePickerButtonTextLabel: {
-    ...theme.typography.body2,
-    color: theme.colors.customGray[200],
-  },
-  datePickerButtonTextValue: {
-    ...theme.typography.body2,
-    color: theme.colors.customOlive[50],
-  },
-  dateModalActions: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-  },
-  // List Styles
-  listContentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-    flexGrow: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    ...theme.typography.body1,
-    color: theme.colors.customGray[200],
-    textAlign: 'center',
-    marginTop: 16,
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.customWhite[50],
+    },
+    headerContainer: {
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: 16,
+      backgroundColor: theme.colors.customWhite[50],
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.customGray[50],
+    },
+    pageTitle: {
+      ...theme.typography.title,
+      color: theme.colors.customGreen[300],
+      textAlign: 'center',
+    },
+    topFiltersBar: {
+      flexDirection: 'row',
+      paddingVertical: 12,
+      backgroundColor: theme.colors.customWhite[50],
+      paddingHorizontal: 16,
+    },
+    filtersScrollViewContent: {
+      alignItems: 'center',
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.customWhite[50],
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: theme.colors.customGreen[200],
+      marginHorizontal: 4,
+      height: 36,
+    },
+    filterButtonText: {
+      ...theme.typography.caption,
+      color: theme.colors.customOlive[50],
+      marginRight: 4,
+    },
+    // Date Filter Modal Styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    dateModalContentContainer: {
+       backgroundColor: theme.colors.customWhite[50],
+       borderTopLeftRadius: 16,
+       borderTopRightRadius: 16,
+    },
+    dateModalContent: {
+      padding:24
+    },
+    dateModalTitle: {
+      ...theme.typography.subtitle1,
+      color: theme.colors.customOlive[50],
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    datePickerButton: {
+      borderWidth: 1,
+      borderColor: theme.colors.customGray[100],
+      borderRadius: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: theme.colors.customWhite[50],
+      marginBottom: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+    datePickerButtonTextLabel: {
+      ...theme.typography.body2,
+      color: theme.colors.customGray[200],
+    },
+    datePickerButtonTextValue: {
+      ...theme.typography.body2,
+      color: theme.colors.customOlive[50],
+    },
+    dateModalActions: {
+      flexDirection: 'row',
+      gap: 16,
+      marginTop: 16,
+    },
+    // List Styles
+    listContentContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 24,
+      flexGrow: 1,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    emptyText: {
+      ...theme.typography.body1,
+      color: theme.colors.customGray[200],
+      textAlign: 'center',
+      marginTop: 16,
+    },
+  });
