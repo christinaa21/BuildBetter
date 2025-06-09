@@ -168,6 +168,7 @@ export default function BuildConsultPage() {
   const handleChatPress = (consultationId: string) => {
     // Navigate to chat with architect for this consultation
     console.log('Chat for consultation:', consultationId);
+    router.push('/buildconsult/chat/[id]')
   };
 
   const handleBooking = (architectId: string) => {
