@@ -86,7 +86,7 @@ export default function DevTools({ onStateChange, currentState }: DevToolsProps)
         architectName: 'Erensa Ratu',
         consultationDate: '31 Mei 2025',
         consultationTime: '17:00 - 18:00',
-        location: 'Jalan Cendrawasih, Raharja, Jawa Barat',
+        location: 'https://g.co/kgs/TXrh9MQ',
       }
     },
     {
@@ -99,7 +99,7 @@ export default function DevTools({ onStateChange, currentState }: DevToolsProps)
         architectName: 'Erensa Ratu',
         consultationDate: '31 Mei 2025',
         consultationTime: '17:00 - 18:00',
-        location: 'Jalan Cendrawasih, Raharja, Jawa Barat',
+        location: 'https://g.co/kgs/TXrh9MQ',
       }
     },
     {
@@ -112,7 +112,7 @@ export default function DevTools({ onStateChange, currentState }: DevToolsProps)
         architectName: 'Erensa Ratu',
         consultationDate: '31 Mei 2025',
         consultationTime: '17:00 - 18:00',
-        location: 'Jalan Cendrawasih, Raharja, Jawa Barat',
+        location: 'https://g.co/kgs/TXrh9MQ',
       }
     }
   ];

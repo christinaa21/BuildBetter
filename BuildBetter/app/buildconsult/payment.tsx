@@ -203,7 +203,7 @@ const PaymentPage: React.FC = () => {
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
-        allowsEditing: true,
+        allowsEditing: false,
         aspect: [9, 19],
         quality: 0.8,
       });

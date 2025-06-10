@@ -10,6 +10,7 @@ interface ChatMessageProps {
   isFromUser: boolean;
   senderName?: string;
   senderAvatar?: string;
+  isFirstMessageFromSender?: boolean; // New prop to indicate if this is the first message in a sequence
 }
 
 export default function ChatMessage({ 
@@ -17,21 +18,29 @@ export default function ChatMessage({
   timestamp, 
   isFromUser, 
   senderName, 
-  senderAvatar 
+  senderAvatar,
+  isFirstMessageFromSender = false
 }: ChatMessageProps) {
+  const getAvatarSource = () => {
+    if (senderAvatar) {
+      return { uri: senderAvatar };
+    }
+    return require('@/assets/images/blank-profile.png');
+  };
+
   return (
-    <View style={[styles.container, isFromUser ? styles.userMessage : styles.architectMessage]}>
+    <View style={[
+      styles.container, 
+      isFromUser ? styles.userMessage : styles.architectMessage,
+      isFirstMessageFromSender && styles.firstMessageFromSender
+    ]}>
       {!isFromUser && (
         <View style={styles.avatarContainer}>
-          {senderAvatar ? (
-            <Image source={{ uri: senderAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.defaultAvatar}>
-              <Text style={styles.avatarText}>
-                {senderName ? senderName.charAt(0).toUpperCase() : 'A'}
-              </Text>
-            </View>
-          )}
+          <Image 
+            source={getAvatarSource()} 
+            style={styles.avatar}
+            defaultSource={require('@/assets/images/blank-profile.png')}
+          />
         </View>
       )}
       
@@ -50,7 +59,7 @@ export default function ChatMessage({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: 4,
+    marginVertical: 2,
     paddingHorizontal: 16,
     alignItems: 'flex-end',
   },
@@ -60,6 +69,9 @@ const styles = StyleSheet.create({
   architectMessage: {
     justifyContent: 'flex-start',
   },
+  firstMessageFromSender: {
+    marginTop: 12, // Increased spacing when switching between architect and user
+  },
   avatarContainer: {
     marginRight: 8,
     marginBottom: 4,
@@ -68,19 +80,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-  },
-  defaultAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.customGreen[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    ...theme.typography.caption,
-    color: theme.colors.customWhite[50],
-    fontWeight: '600',
   },
   bubble: {
     maxWidth: '75%',

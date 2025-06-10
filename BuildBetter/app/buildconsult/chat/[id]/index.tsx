@@ -7,7 +7,9 @@ import {
   FlatList, 
   SafeAreaView, 
   TouchableOpacity,
-  Alert
+  Alert,
+  Image,
+  Linking
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -38,7 +40,20 @@ interface ConsultationDetails {
   startDate: string;
   endDate: string;
   location?: string;
+  locationDescription?: string;
   roomId: string;
+}
+
+interface MessageWithDate extends Message {
+  date: string;
+}
+
+interface GroupedMessage {
+  id: string;
+  type: 'date' | 'message';
+  date?: string;
+  message?: MessageWithDate;
+  isFirstMessageFromSender?: boolean; // Add this for spacing logic
 }
 
 export default function ChatPage() {
@@ -61,7 +76,7 @@ export default function ChatPage() {
     architectName: 'Erensa Ratu Chelsia',
     consultationDate: '31 Mei 2025',
     consultationTime: '17:00 - 18:00',
-    location: 'Jalan Cendrawasih, Raharja, Jawa Barat',
+    location: 'https://g.co/kgs/TXrh9MQ',
   });
 
   useEffect(() => {
@@ -91,6 +106,7 @@ export default function ChatPage() {
         startDate: devState.consultationDate,
         endDate: devState.consultationTime,
         location: devState.location,
+        locationDescription: 'Dekat dengan Stasiun Tanah Abang, sebelah kanan jalan raya',
         roomId: roomId as string,
       };
       
@@ -111,42 +127,43 @@ export default function ChatPage() {
       {
         id: '1',
         message: 'Hai Kak! Okay saya sebentar lagi juga otw ke lokasi yaa',
-        timestamp: '16.02',
+        timestamp: '2025-06-10T16:02:00',
         isFromUser: true,
         senderName: 'You',
       },
       {
         id: '2',
         message: 'Oke, Siap Bu.',
-        timestamp: '16.02',
+        timestamp: '2025-06-10T16:02:00',
         isFromUser: false,
         senderName: 'Erensa Ratu',
+        senderAvatar: 'https://example.com/avatar.jpg', // This will fallback to blank-profile.png
       },
       {
         id: '3',
         message: 'Hi Bu Erensa! Saya sedang otw ke lokasi yaa',
-        timestamp: '16.02',
+        timestamp: '2025-06-10T16:02:00',
         isFromUser: false,
         senderName: 'Erensa Ratu',
       },
       {
         id: '4',
         message: 'Hi Bu Erensa! Saya ingin melaksanakan proyek pembangunan untuk rumah saya. Bolehkah kita menjadwalkan untuk bertemu untuk berdiskusi terkait pembangunan ini?',
-        timestamp: '14.02',
+        timestamp: '2025-06-09T14:02:00',
         isFromUser: false,
         senderName: 'Erensa Ratu',
       },
       {
         id: '5',
         message: 'Hai Kak! Tentu saja bisa, dalam jangka waktu kapan kak saya bersedia untuk bertemu di hari kamis jam 11 pagi. Apakah bersedia?',
-        timestamp: '14.02',
+        timestamp: '2025-06-09T14:02:00',
         isFromUser: true,
         senderName: 'You',
       },
       {
         id: '6',
         message: 'Hai Kak! Tentu saja bisa, dalam jangka waktu kapan kak saya bersedia untuk bertemu di hari kamis jam 11 pagi. Apakah bersedia?',
-        timestamp: '14.02',
+        timestamp: '2025-06-08T14:02:00',
         isFromUser: true,
         senderName: 'You',
       },
@@ -168,7 +185,8 @@ export default function ChatPage() {
         architectName: 'Erensa Ratu',
         startDate: '31 Mei 2025',
         endDate: '17:00 - 18:00',
-        location: 'Jalan Cendrawasih, Raharja, Jawa Barat',
+        location: 'https://g.co/kgs/TXrh9MQ',
+        locationDescription: 'Dekat dengan Stasiun Tanah Abang, sebelah kanan jalan raya',
         roomId: roomId as string,
       };
       
@@ -224,9 +242,76 @@ export default function ChatPage() {
 
   const shouldShowChat = () => {
     if (__DEV__) {
-      return devState.chatStatus === 'active';
+      return devState.chatStatus === 'active' || devState.chatStatus === 'ended';
     }
-    return chatStatus === 'active';
+    return chatStatus === 'active' || chatStatus === 'ended';
+  };
+
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hari ini';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Kemarin';
+    } else {
+      return date.toLocaleDateString('id-ID', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+  };
+
+  const groupMessagesByDate = (messages: Message[]): GroupedMessage[] => {
+    const grouped: GroupedMessage[] = [];
+    let currentDate = '';
+    let previousMessage: MessageWithDate | null = null;
+    
+    // Sort messages by timestamp (oldest first for proper grouping)
+    const sortedMessages = [...messages].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    sortedMessages.forEach((message) => {
+      const messageDate = new Date(message.timestamp).toDateString();
+      
+      if (messageDate !== currentDate) {
+        currentDate = messageDate;
+        grouped.push({
+          id: `date-${messageDate}`,
+          type: 'date',
+          date: formatDate(message.timestamp),
+        });
+        // Reset previous message when starting a new date
+        previousMessage = null;
+      }
+      
+      const messageWithDate: MessageWithDate = {
+        ...message,
+        date: messageDate,
+      };
+
+      // Determine if this is the first message from this sender
+      const isFirstMessageFromSender = !previousMessage || 
+        previousMessage.isFromUser !== message.isFromUser;
+      
+      grouped.push({
+        id: message.id,
+        type: 'message',
+        message: messageWithDate,
+        isFirstMessageFromSender,
+      });
+
+      previousMessage = messageWithDate;
+    });
+    
+    // Reverse to show newest messages first
+    return grouped.reverse();
   };
 
   const sendLocationCard = () => {
@@ -236,10 +321,7 @@ export default function ChatPage() {
     const locationMessage: Message = {
       id: 'location-card',
       message: `📍 Lokasi konsultasi: ${consultation.location}`,
-      timestamp: new Date().toLocaleTimeString('id-ID', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
+      timestamp: new Date().toISOString(),
       isFromUser: false,
       senderName: 'System',
     };
@@ -253,10 +335,7 @@ export default function ChatPage() {
     const newMessage: Message = {
       id: Date.now().toString(),
       message,
-      timestamp: new Date().toLocaleTimeString('id-ID', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
+      timestamp: new Date().toISOString(),
       isFromUser: true,
       senderName: user.username || 'You',
     };
@@ -283,6 +362,45 @@ export default function ChatPage() {
   const handleDevStateChange = (newState: DevToolsState) => {
     setDevState(newState);
   };
+
+  const renderChatItem = ({ item, index }: { item: GroupedMessage; index: number }) => {
+    if (item.type === 'date') {
+      return (
+        <View style={styles.dateContainer}>
+          <Text style={styles.dateText}>{item.date}</Text>
+        </View>
+      );
+    }
+    
+    if (item.message) {
+      return (
+        <ChatMessage
+          id={item.message.id}
+          message={item.message.message}
+          timestamp={new Date(item.message.timestamp).toLocaleTimeString('id-ID', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}
+          isFromUser={item.message.isFromUser}
+          senderName={item.message.senderName}
+          senderAvatar={item.message.senderAvatar}
+          isFirstMessageFromSender={item.isFirstMessageFromSender}
+        />
+      );
+    }
+    
+    return null;
+  };
+
+  const getAvatarSource = (avatarUrl?: string) => {
+    if (avatarUrl) {
+      return { uri: avatarUrl };
+    }
+    return require('@/assets/images/blank-profile.png');
+  };
+
+  const currentChatStatus = __DEV__ ? devState.chatStatus : chatStatus;
+  const shouldShowBookingFooter = currentChatStatus === 'ended' && messages.length > 0;
 
   if (loading) {
     return (
@@ -316,6 +434,8 @@ export default function ChatPage() {
     );
   }
 
+  const groupedMessages = groupMessagesByDate(messages);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -324,24 +444,24 @@ export default function ChatPage() {
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.customOlive[50]} />
         </TouchableOpacity>
         <View style={styles.architectInfo}>
-          <View style={styles.architectAvatar}>
-            <Text style={styles.avatarText}>
-              {consultation.architectName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <Image 
+            source={getAvatarSource(consultation.architectAvatar)} 
+            style={styles.architectAvatar}
+            defaultSource={require('@/assets/images/blank-profile.png')}
+          />
           <Text style={styles.architectName}>{consultation.architectName}</Text>
         </View>
       </View>
 
       {/* Chat Content */}
-      {!shouldShowChat() ? (
+      {currentChatStatus === 'waiting' ? (
         <WaitingMessage 
           consultationType={consultation.type}
           consultationDate={consultation.startDate}
           consultationTime={consultation.endDate}
         />
       ) : (
-        <>
+        <View style={styles.chatContainer}>
           {/* Location Card for offline consultations */}
           {((consultation.type === 'offline' && __DEV__ && devState.showLocationCard) || 
             (consultation.type === 'offline' && !__DEV__)) && (
@@ -349,38 +469,41 @@ export default function ChatPage() {
               date={consultation.startDate}
               time={consultation.endDate}
               location={consultation.location || ''}
+              locationDescription={consultation.locationDescription}
             />
           )}
 
           {/* Messages */}
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={groupedMessages}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ChatMessage
-                id={item.id}
-                message={item.message}
-                timestamp={item.timestamp}
-                isFromUser={item.isFromUser}
-                senderName={item.senderName}
-                senderAvatar={item.senderAvatar}
-              />
-            )}
+            renderItem={renderChatItem}
             style={styles.messagesList}
+            contentContainerStyle={styles.messagesContainer}
             inverted
           />
-        </>
+        </View>
       )}
 
-      {/* Chat Input */}
-      {shouldShowChat() && (
+      {/* Chat Input - Only show when active */}
+      {currentChatStatus === 'active' && (
         <ChatInput
           onSendMessage={handleSendMessage}
-          disabled={(__DEV__ ? devState.chatStatus : chatStatus) === 'ended'}
-          isConsultationEnded={(__DEV__ ? devState.chatStatus : chatStatus) === 'ended'}
-          onBookingPress={handleBookingPress}
+          disabled={false}
         />
+      )}
+
+      {/* Booking Footer - Only show when ended */}
+      {shouldShowBookingFooter && (
+        <View style={styles.bookingFooter}>
+          <Text style={styles.bookingText}>
+            Sesi konsultasi telah berakhir. Mau booking ulang?{' '}
+            <Text style={styles.bookingLink} onPress={handleBookingPress}>
+              Silakan klik di sini.
+            </Text>
+          </Text>
+        </View>
       )}
 
       {/* Dev Tools - Only in Development */}
@@ -419,10 +542,7 @@ const styles = StyleSheet.create({
   architectAvatar: {
     width: 36,
     height: 36,
-    borderRadius: 40,
-    backgroundColor: theme.colors.customGreen[300],
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 18,
     marginRight: 12,
   },
   avatarText: {
@@ -439,9 +559,46 @@ const styles = StyleSheet.create({
     color: theme.colors.customOlive[50],
     flex: 1,
   },
+  chatContainer: {
+    flex: 1,
+  },
   messagesList: {
     flex: 1,
+  },
+  messagesContainer: {
     paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  dateContainer: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dateText: {
+    ...theme.typography.caption,
+    color: theme.colors.customGray[200],
+    backgroundColor: theme.colors.customWhite[100],
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  bookingFooter: {
+    backgroundColor: theme.colors.customWhite[50],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.customGray[50],
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 8,
+  },
+  bookingText: {
+    ...theme.typography.body2,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  bookingLink: {
+    color: theme.colors.customGreen[300],
+    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
