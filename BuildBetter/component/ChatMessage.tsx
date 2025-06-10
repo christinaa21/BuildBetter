@@ -1,6 +1,6 @@
 // component/ChatMessage.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import theme from '../app/theme';
 
 interface ChatMessageProps {
@@ -10,22 +10,46 @@ interface ChatMessageProps {
   isFromUser: boolean;
   senderName?: string;
   senderAvatar?: string;
-  isFirstMessageFromSender?: boolean; // New prop to indicate if this is the first message in a sequence
+  isFirstMessageFromSender?: boolean;
+  type?: 'TEXT' | 'IMAGE'; // Add type prop
 }
 
 export default function ChatMessage({ 
   message, 
   timestamp, 
   isFromUser, 
-  senderName, 
   senderAvatar,
-  isFirstMessageFromSender = false
+  isFirstMessageFromSender = false,
+  type = 'TEXT' // Default to 'TEXT' for safety
 }: ChatMessageProps) {
+  
   const getAvatarSource = () => {
     if (senderAvatar) {
       return { uri: senderAvatar };
     }
     return require('@/assets/images/blank-profile.png');
+  };
+
+  // Render content based on type
+  const renderMessageContent = () => {
+    if (type === 'IMAGE') {
+      return (
+        <Image 
+          source={{ uri: message }} 
+          style={styles.messageImage}
+          // Optional: add a loading indicator while the image loads
+          onLoadStart={() => console.log('Image loading started...')}
+          onError={(e) => console.log('Image loading error:', e.nativeEvent.error)}
+        />
+      );
+    }
+    
+    // Default to rendering text
+    return (
+      <Text style={[styles.messageText, isFromUser ? styles.userText : styles.architectText]}>
+        {message}
+      </Text>
+    );
   };
 
   return (
@@ -39,15 +63,17 @@ export default function ChatMessage({
           <Image 
             source={getAvatarSource()} 
             style={styles.avatar}
-            defaultSource={require('@/assets/images/blank-profile.png')}
           />
         </View>
       )}
       
-      <View style={[styles.bubble, isFromUser ? styles.userBubble : styles.architectBubble]}>
-        <Text style={[styles.messageText, isFromUser ? styles.userText : styles.architectText]}>
-          {message}
-        </Text>
+      <View style={[
+        styles.bubble, 
+        isFromUser ? styles.userBubble : styles.architectBubble,
+        // Use a different style for image bubbles if needed (e.g., no padding)
+        type === 'IMAGE' && styles.imageBubble
+      ]}>
+        {renderMessageContent()}
         <Text style={[styles.timestamp, isFromUser ? styles.userTimestamp : styles.architectTimestamp]}>
           {timestamp}
         </Text>
@@ -70,7 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   firstMessageFromSender: {
-    marginTop: 12, // Increased spacing when switching between architect and user
+    marginTop: 12,
   },
   avatarContainer: {
     marginRight: 8,
@@ -95,6 +121,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderBottomLeftRadius: 4,
   },
+  // Style for image bubbles to remove padding and let the image fill it
+  imageBubble: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    backgroundColor: 'transparent',
+  },
   messageText: {
     ...theme.typography.body2,
     lineHeight: 20,
@@ -104,6 +136,13 @@ const styles = StyleSheet.create({
   },
   architectText: {
     color: theme.colors.customOlive[50],
+  },
+  // New style for the image content
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12, // Match bubble's radius
+    resizeMode: 'cover',
   },
   timestamp: {
     ...theme.typography.caption,
@@ -116,5 +155,7 @@ const styles = StyleSheet.create({
   },
   architectTimestamp: {
     color: theme.colors.customGray[200],
+    // For images, timestamp might need a background to be visible
+    alignSelf: 'flex-end', // Ensure it's at the bottom right
   },
 });

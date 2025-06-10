@@ -1,12 +1,12 @@
 // app/buildconsult/index.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from '../theme';
 import Button from '@/component/Button';
 import Textfield from '@/component/Textfield';
-import ArchitectCard, { ArchitectStatus } from '@/component/ArchitectCard';
+import ConsultationCard, { ConsultationStatus } from '@/component/ConsultationCard';
 import { useAuth } from '@/context/AuthContext';
 import { buildconsultApi, Architect } from '@/services/api';
 import * as SecureStore from 'expo-secure-store';
@@ -24,14 +24,15 @@ interface Consultation {
   startDate: string;
   endDate: string;
   createdAt: string;
+  location?: string; // Add location field for offline consultations
 }
 
 interface ConsultationWithArchitect extends Consultation {
   architect: Architect;
 }
 
-// Helper function to map consultation status to ArchitectStatus
-const mapConsultationStatus = (status: string): ArchitectStatus => {
+// Helper function to map consultation status to ConsultationStatus
+const mapConsultationStatus = (status: string): ConsultationStatus => {
   switch (status) {
     case 'scheduled':
       return 'Dijadwalkan';
@@ -84,7 +85,6 @@ export default function BuildConsultPage() {
     try {
       setLoading(true);
       
-      // Check if user is logged in
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) {
         setError('Please log in to view consultation history.');
@@ -92,7 +92,6 @@ export default function BuildConsultPage() {
         return;
       }
 
-      // Fetch consultations
       const consultationResponse = await buildconsultApi.getConsultations();
       
       if (consultationResponse.code !== 200 || !consultationResponse.data) {
@@ -103,14 +102,12 @@ export default function BuildConsultPage() {
 
       const consultationsData: Consultation[] = consultationResponse.data;
 
-      // If no consultations found, show first-time user view
       if (consultationsData.length === 0) {
         setHasConsultationHistory(false);
         setLoading(false);
         return;
       }
 
-      // Fetch architects to match with consultations
       const architectResponse = await buildconsultApi.getArchitects();
       
       if (architectResponse.code !== 200 || !architectResponse.data) {
@@ -120,32 +117,47 @@ export default function BuildConsultPage() {
       }
 
       const architectsData: Architect[] = architectResponse.data;
-
-      // Create a map for quick architect lookup
       const architectMap = new Map<string, Architect>();
       architectsData.forEach(architect => {
         architectMap.set(architect.id, architect);
       });
 
-      // Combine consultation data with architect data
       const consultationsWithArchitects: ConsultationWithArchitect[] = consultationsData
         .map(consultation => {
           const architect = architectMap.get(consultation.architectId);
           if (architect) {
-            return {
-              ...consultation,
-              architect
-            };
+            return { ...consultation, architect };
           }
           return null;
         })
         .filter((item): item is ConsultationWithArchitect => item !== null)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by newest first
+        // IMPORTANT: Sort by creation date descending to easily find the latest
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      setConsultations(consultationsWithArchitects);
+      // --- START: MODIFICATION - Group consultations by roomId and get the latest ---
+      const latestConsultationsMap = new Map<string, ConsultationWithArchitect>();
+
+      consultationsWithArchitects.forEach(consultation => {
+        // Use roomId as the primary key for grouping.
+        // If roomId is null (e.g., for an offline consultation), use the unique consultation.id instead.
+        const groupKey = consultation.roomId || consultation.id;
+
+        // Because the list is sorted with the newest first, we only add
+        // the first one we encounter for each groupKey, effectively getting the latest.
+        if (!latestConsultationsMap.has(groupKey)) {
+          latestConsultationsMap.set(groupKey, consultation);
+        }
+      });
+
+      const uniqueLatestConsultations = Array.from(latestConsultationsMap.values());
+      uniqueLatestConsultations.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+      // --- END: MODIFICATION ---
+
+      // Update state with the processed, unique list of latest consultations
+      setConsultations(uniqueLatestConsultations);
       
-      // Check if there are any consultations with allowed statuses
-      const hasDisplayableConsultations = consultationsWithArchitects.some(consultation => 
+      // Check the processed list to determine if there's history to show
+      const hasDisplayableConsultations = uniqueLatestConsultations.some(consultation => 
         allowedStatuses.includes(consultation.status)
       );
       
@@ -165,15 +177,19 @@ export default function BuildConsultPage() {
     setSearchQuery(query);
   };
 
-  const handleChatPress = (consultationId: string) => {
-    // Navigate to chat with architect for this consultation
-    console.log('Chat for consultation:', consultationId);
-    router.push('/buildconsult/chat/[id]')
-  };
-
-  const handleBooking = (architectId: string) => {
-    // Navigate to booking flow
-    router.push('/buildconsult/booking');
+  const handleChatPress = (consultation: ConsultationWithArchitect) => {
+    if (!consultation.roomId) {
+      Alert.alert("Error", "Chat room not available for this consultation.");
+      return;
+    }
+    // Navigate to chat with architect, passing roomId and the latest consultationId
+    router.push({
+      pathname: '/buildconsult/chat/[roomId]',
+      params: { 
+        roomId: consultation.roomId,
+        consultationId: consultation.id 
+      },
+    });
   };
 
   const handleConsultNow = () => {
@@ -184,6 +200,8 @@ export default function BuildConsultPage() {
     fetchConsultationHistory();
   };
 
+  // --- RENDER LOGIC ---
+
   // Loading state
   if (loading) {
     return (
@@ -191,7 +209,7 @@ export default function BuildConsultPage() {
         <View style={styles.searchContainer}>
           <Textfield
             icon={<MaterialIcons name="search" size={16}/>}
-            placeholder="Cari arsitek di sini..."
+            placeholder="Cari konsultasi di sini..."
             value={searchQuery}
             onChangeText={handleSearch}
           />
@@ -213,7 +231,7 @@ export default function BuildConsultPage() {
         <View style={styles.searchContainer}>
           <Textfield
             icon={<MaterialIcons name="search" size={16}/>}
-            placeholder="Cari arsitek di sini..."
+            placeholder="Cari konsultasi di sini..."
             value={searchQuery}
             onChangeText={handleSearch}
           />
@@ -241,7 +259,7 @@ export default function BuildConsultPage() {
         <View style={styles.searchContainer}>
           <Textfield
             icon={<MaterialIcons name="search" size={16}/>}
-            placeholder="Cari arsitek di sini..."
+            placeholder="Cari konsultasi di sini..."
             value={searchQuery}
             onChangeText={handleSearch}
           />
@@ -289,19 +307,16 @@ export default function BuildConsultPage() {
       <View style={styles.searchContainer}>
         <Textfield
           icon={<MaterialIcons name="search" size={16}/>}
-          placeholder="Cari arsitek di sini..."
+          placeholder="Cari konsultasi di sini..."
           paddingVertical={12}
           value={searchQuery}
           onChangeText={handleSearch}
         />
       </View>
 
-      <ScrollView style={styles.architectList} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.consultationList} showsVerticalScrollIndicator={false}>
         <View style={styles.infoChip}>
-          <Text style={[theme.typography.subtitle1]}>Riwayat Konsultasi</Text>
-          <Text style={[theme.typography.caption, styles.infoChipText]}>
-            Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
-          </Text>
+          <Text style={[theme.typography.title, {color: theme.colors.customGreen[300]}]}>Riwayat Konsultasi</Text>
         </View>
         
         {filteredConsultations.length === 0 && searchQuery.trim() !== '' && (
@@ -314,18 +329,17 @@ export default function BuildConsultPage() {
         )}
 
         {filteredConsultations.map((consultation) => (
-          <ArchitectCard
-            key={consultation.id}
-            id={consultation.architect.id}
-            username={consultation.architect.username}
-            experience={consultation.architect.experience}
-            city={consultation.architect.city}
-            rateOnline={consultation.architect.rateOnline}
-            rateOffline={consultation.architect.rateOffline}
+          <ConsultationCard
+            // The consultation.id is now guaranteed to be from the latest consultation in its group
+            key={consultation.roomId || consultation.id}
+            id={consultation.id}
+            architectName={consultation.architect.username}
+            architectPhoto={consultation.architect.photo}
+            consultationType={consultation.type}
             status={mapConsultationStatus(consultation.status)}
-            portfolio={consultation.architect.portfolio}
-            onChatPress={() => handleChatPress(consultation.id)}
-            onBookPress={() => handleBooking(consultation.architect.id)}
+            startDate={consultation.startDate}
+            endDate={consultation.endDate}
+            onChatPress={() => handleChatPress(consultation)}
           />
         ))}
       </ScrollView>
@@ -337,6 +351,7 @@ export default function BuildConsultPage() {
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -427,14 +442,14 @@ const styles = StyleSheet.create({
   },
   infoChip: {
     paddingHorizontal: 8,
-    gap: 4,
     paddingVertical: 8,
+    marginBottom: 4,
   },
   infoChipText: {
     color: theme.colors.customOlive[50],
     marginBottom: 2,
   },
-  architectList: {
+  consultationList: {
     flex: 1,
     paddingHorizontal: 16,
   },

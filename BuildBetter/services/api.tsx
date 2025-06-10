@@ -290,6 +290,21 @@ export interface GetConsultationByIdResponse {
   error?: string;
 }
 
+export interface GetRoomsChatResponse {
+  code: number;
+  status: string;
+  data?: {
+    id: string;
+    roomId: string;
+    sender: string;
+    senderRole: 'user' | 'architect';
+    content: string;
+    type: 'TEXT' | 'IMAGE';
+    createdAt: string;
+  };
+  error?: string;
+}
+
 export interface UploadPaymentResponse {
   code: number;
   status: string;
@@ -693,6 +708,44 @@ export const buildconsultApi = {
   cancelConsultation: async (consultationId: string): Promise<CreateConsultationResponse> => {
     try {
       const response = await apiClient.post<CreateConsultationResponse>(`/consultations/${consultationId}/cancel`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as CreateConsultationResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+  
+  // NEW: Get consultation by its ID
+  getRoomsChat: async (roomId: string): Promise<GetRoomsChatResponse> => {
+    try {
+      const response = await apiClient.get<GetRoomsChatResponse>(`/chats/${roomId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as GetRoomsChatResponse;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+
+  // NEW: Create a new consultation booking
+  uploadFile: async (data: FormData, roomId: string): Promise<CreateConsultationResponse> => {
+    try {
+      const response = await apiClient.post<CreateConsultationResponse>(`/chats/${roomId}/file`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
