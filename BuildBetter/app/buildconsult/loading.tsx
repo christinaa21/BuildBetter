@@ -114,9 +114,19 @@ const ConsultationBookingLoading = () => {
     useCallback(() => {
       const onBackPress = () => {
         if (bookingState === 'loading') {
-          Alert.alert('Tunggu Sebentar', 'Pesanan sedang diproses, mohon tunggu...', [{ text: 'OK' }]);
+          Alert.alert(
+            'Tunggu Sebentar', 
+            'Pesanan sedang diproses. Apakah Anda ingin melihat status di halaman riwayat?', 
+            [
+              { text: 'Tunggu Disini', style: 'cancel' },
+              { 
+                text: 'Ke Riwayat', 
+                onPress: () => router.replace('/(tabs)/history')
+              }
+            ]
+          );
         } else {
-            router.replace('/(tabs)/consult');
+          router.replace('/(tabs)/history');
         }
         return true;
       };
@@ -206,7 +216,7 @@ const ConsultationBookingLoading = () => {
                 Alert.alert(
                   "Pemesanan Dibatalkan",
                   "Pemesanan Anda telah berhasil dibatalkan.",
-                  [{ text: "OK", onPress: () => router.replace('/(tabs)/consult') }]
+                  [{ text: "OK", onPress: () => router.replace('/(tabs)/history') }]
                 );
               } else {
                 Alert.alert("Gagal", response.error || "Gagal membatalkan pemesanan. Silakan coba lagi.");
@@ -236,6 +246,9 @@ const ConsultationBookingLoading = () => {
                 Admin sedang mengonfirmasi pesananmu
               </Text>
               <ActivityIndicator size="large" color={theme.colors.customGreen[300]} style={styles.loader} />
+              <Text style={[styles.hintText, theme.typography.body2]}>
+                Anda dapat melihat status pesanan di halaman riwayat
+              </Text>
             </View>
           );
   
@@ -251,6 +264,12 @@ const ConsultationBookingLoading = () => {
               </Text>
               <View style={styles.buttonContainer}>
                 <Button title="Ke Room Chat" variant="primary" onPress={handleGoToChat} />
+                <Button 
+                  title="Lihat Riwayat" 
+                  variant="outline" 
+                  onPress={() => router.replace('/(tabs)/history')} 
+                  style={styles.secondaryButton}
+                />
               </View>
             </View>
           );
@@ -275,7 +294,7 @@ const ConsultationBookingLoading = () => {
                 <Text style={[styles.cancelText, theme.typography.body2]}>
                   Mau batalkan pemesanan saja?{'\n'}
                   <Text style={styles.cancelLink} onPress={() => handleCancelConsultation(false)} disabled={isProcessing}>
-                    Klik disini untuk kembali ke beranda
+                    Klik disini untuk kembali ke riwayat
                   </Text>
                 </Text>
               </View>
@@ -302,7 +321,7 @@ const ConsultationBookingLoading = () => {
                 <Text style={[styles.cancelText, theme.typography.body2]}>
                   Mau batalkan pemesanan saja?{'\n'}
                   <Text style={styles.cancelLink} onPress={() => handleCancelConsultation(false)} disabled={isProcessing}>
-                    Klik disini untuk kembali ke beranda dan admin akan mengembalikan uangmu
+                    Klik disini untuk kembali ke riwayat dan admin akan mengembalikan uangmu
                   </Text>
                 </Text>
               </View>
@@ -350,10 +369,19 @@ const styles = StyleSheet.create({
     loader: {
       marginTop: 16,
     },
+    hintText: {
+      color: theme.colors.customOlive[50],
+      textAlign: 'center',
+      marginTop: 24,
+      opacity: 0.7,
+    },
     buttonContainer: {
       marginVertical: 16,
       width: '80%', // Added to constrain button width a bit
       alignItems: 'center',
+    },
+    secondaryButton: {
+      marginTop: 12,
     },
     cancelText: {
       color: theme.colors.customOlive[50],

@@ -194,6 +194,30 @@ export interface ResetPasswordResponse {
   error?: string | string[];
 }
 
+export interface Article {
+    id: string;
+    author: string;
+    title: string;
+    banner: string;
+    content: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ArticlesResponse {
+  code: number;
+  status: string;
+  data?: Article[];
+  error?: string;
+}
+
+export interface ArticlesResponseById {
+  code: number;
+  status: string;
+  data?: Article;
+  error?: string;
+}
+
 export interface Architect {
   id: string;
   username: string;
@@ -306,6 +330,20 @@ export interface GetRoomsChatResponse {
 }
 
 export interface UploadPaymentResponse {
+  code: number;
+  status: string;
+  message?: string;
+  data?: string;
+  error?: string;
+}
+
+export interface PhotoUploadPayload {
+  uri: string;
+  type: string; // MIME type e.g., 'image/jpeg'
+  name: string; // Filename e.g., 'profile.jpg'
+}
+
+export interface sendFileInChatResponse {
   code: number;
   status: string;
   message?: string;
@@ -509,6 +547,41 @@ export const authApi = {
         return error.response.data;
       }
       throw error;
+    }
+  },
+  
+  // Get user profile
+  getArticles: async (): Promise<ArticlesResponse> => {
+    try {
+      const response = await apiClient.get<ArticlesResponse>('/articles');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as ArticlesResponse;
+      }
+      // Create a standardized error response for network or unexpected errors
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
+    }
+  },
+
+  // Get a specific plan by its ID
+  getPlanById: async (articleId: string): Promise<ArticlesResponseById> => {
+    try {
+      const response = await apiClient.get<ArticlesResponseById>(`/articles/${articleId}`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        return error.response.data as ArticlesResponseById;
+      }
+      return {
+        code: 500,
+        status: 'ERROR',
+        error: 'Network or server error. Please check your connection and try again.'
+      };
     }
   },
 };
@@ -738,24 +811,37 @@ export const buildconsultApi = {
     }
   },
 
-  // NEW: Create a new consultation booking
-  uploadFile: async (data: FormData, roomId: string): Promise<CreateConsultationResponse> => {
+  // SEND FILE IN CHAT
+  uploadFile: async (
+    roomId: string,
+    file: PhotoUploadPayload
+  ): Promise<sendFileInChatResponse> => {
     try {
-      const response = await apiClient.post<CreateConsultationResponse>(`/chats/${roomId}/file`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const formData = new FormData();
+
+      if (file && file.uri) {
+        formData.append("file", {
+          uri: file.uri,
+          type: file.type,
+          name: file.name,
+        } as any);
+      }
+
+      const response = await apiClient.post<sendFileInChatResponse>(
+        `/chats/${roomId}/file`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
-        return error.response.data as CreateConsultationResponse;
+        return error.response.data as sendFileInChatResponse; // Return null if room not found or error occurs
       }
-      return {
-        code: 500,
-        status: 'ERROR',
-        error: 'Network or server error. Please check your connection and try again.'
-      };
+      throw error; // Rethrow unexpected errors
     }
   },
 };

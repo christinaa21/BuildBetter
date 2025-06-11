@@ -208,9 +208,9 @@ const BookingConsultation: React.FC = () => {
 
   const generateAllTimeSlots = (): string[] => {
     const slots = [];
-    for (let hour = 8; hour <= 19; hour++) {
+    for (let hour = 7; hour <= 20; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        if (hour === 19 && minute > 0) break;
+        if (hour === 20 && minute > 0) break;
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         slots.push(timeString);
       }
@@ -268,7 +268,7 @@ const BookingConsultation: React.FC = () => {
           ];
           
           bufferTimes.forEach(bufferTime => {
-            if (bufferTime >= '08:00' && bufferTime <= '19:00') {
+            if (bufferTime >= '08:00' && bufferTime <= '20:00') {
               bufferedSlots.add(bufferTime);
             }
           });

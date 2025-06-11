@@ -8,12 +8,14 @@ import {
   TouchableOpacity,
   Alert,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { buildconsultApi } from '@/services/api';
+import { buildconsultApi, PhotoUploadPayload } from '@/services/api';
 import theme from '@/app/theme';
 import ChatMessage from '@/component/ChatMessage';
 import ChatInput from '@/component/ChatInput';
@@ -79,16 +81,56 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [chatStatus, setChatStatus] = useState<'waiting' | 'active' | 'ended'>('waiting');
   const flatListRef = useRef<FlatList>(null);
+  // MAJOR FIX 1: Refs to hold the latest state for our WebSocket callbacks
   const ws = useRef<WebSocket | null>(null);
+  const pingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const consultationRef = useRef<ConsultationDetails | null>(null);
+  const userRef = useRef<any>(null); // Using `any` for simplicity, could be a proper User type from your context
+  const isUnmounting = useRef(false); // Ref to prevent reconnect on unmount
+
+  // Keep refs updated with the latest state
+  useEffect(() => {
+    consultationRef.current = consultation;
+    userRef.current = user;
+  });
+
+  // 1. REPLACE the getLocalTimestamp function:
+  const getLocalTimestamp = (): string => {
+    const now = new Date();
+    // Format as YYYY-MM-DDTHH:mm:ss (NO 'Z' suffix to avoid UTC interpretation)
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
+
+  // 2. REPLACE the parseTimestamp function:
+  const parseTimestamp = (timestamp: string): Date => {
+    // Always treat timestamp as local time, never convert from UTC
+    // Remove 'Z' suffix if present to prevent UTC interpretation
+    const cleanTimestamp = timestamp.replace('Z', '');
+    
+    // Create date assuming local timezone
+    return new Date(cleanTimestamp);
+  };
 
   useEffect(() => {
+    isUnmounting.current = false;
     loadChatRoom();
 
     // Cleanup on component unmount
     return () => {
+      isUnmounting.current = true; // Mark that we are unmounting
+      if (pingInterval.current) {
+        clearInterval(pingInterval.current);
+      }
       if (ws.current) {
-        console.log('Closing WebSocket connection...');
-        ws.current.close();
+        console.log('Closing WebSocket connection on unmount...');
+        ws.current.close(1000); // 1000 is a normal closure
       }
     };
   }, [roomId, consultationId]);
@@ -105,6 +147,7 @@ export default function ChatPage() {
       setLoading(true);
 
       const consultationResponse = await buildconsultApi.getConsultationById(consultationId);
+
       if (consultationResponse.code !== 200 || !consultationResponse.data) {
         throw new Error(consultationResponse.error || 'Failed to load consultation details.');
       }
@@ -115,7 +158,7 @@ export default function ChatPage() {
         type: details.type,
         status: details.status,
         architectName: details.architectName,
-        architectAvatar: undefined, 
+        architectAvatar: undefined, // Always use blank profile for now
         startDate: details.startDate,
         endDate: details.endDate,
         location: details.location,
@@ -134,11 +177,11 @@ export default function ChatPage() {
         const mappedMessages = (apiMessages as ApiChatMessage[]).map((msg): Message => ({
           id: msg.id,
           message: msg.content,
-          timestamp: msg.createdAt,
+          timestamp: msg.createdAt, // Keep original timestamp from server
           isFromUser: msg.sender === user.userId,
           senderName: msg.sender === user.userId ? (user.username || 'You') : fetchedConsultation.architectName,
           type: msg.type,
-          senderAvatar: msg.sender !== user.userId ? fetchedConsultation.architectAvatar : undefined,
+          senderAvatar: msg.sender !== user.userId ? undefined : undefined, // Always blank profile
         }));
         setMessages(mappedMessages);
       } else if (chatHistoryResponse.code !== 404) {
@@ -157,26 +200,28 @@ export default function ChatPage() {
     }
   };
 
+  // 5. UPDATE the determineChatStatus function:
   const determineChatStatus = (consult: ConsultationDetails): 'waiting' | 'active' | 'ended' => {
-      if (!consult) return 'waiting';
+    if (!consult) return 'waiting';
 
-      const now = new Date();
-      const consultationStart = new Date(consult.startDate);
-      const consultationEnd = new Date(consult.endDate);
+    const now = new Date();
+    // Parse consultation times as local (no timezone conversion)
+    const consultationStart = parseTimestamp(consult.startDate);
+    const consultationEnd = parseTimestamp(consult.endDate);
 
-      if (consult.status === 'ended' || consult.status === 'cancelled') {
-        return 'ended';
-      }
-      if (consult.status === 'in-progress') {
-        return 'active';
-      }
-      if (consult.status === 'scheduled') {
-        if(now >= consultationStart && now < consultationEnd) return 'active';
-        if(now >= consultationEnd) return 'ended';
-        return 'waiting';
-      }
-      
+    if (consult.status === 'ended' || consult.status === 'cancelled') {
+      return 'ended';
+    }
+    if (consult.status === 'in-progress') {
+      return 'active';
+    }
+    if (consult.status === 'scheduled') {
+      if(now >= consultationStart && now < consultationEnd) return 'active';
+      if(now >= consultationEnd) return 'ended';
       return 'waiting';
+    }
+    
+    return 'waiting';
   };
 
   const initializeWebSocket = async (currentRoomId: string) => {
@@ -186,95 +231,265 @@ export default function ChatPage() {
       return;
     }
 
-    if (ws.current) ws.current.close();
+    // Close any existing connection before creating a new one
+    if (ws.current) {
+        ws.current.onclose = null; // Prevent the old onclose from firing
+        ws.current.close();
+    }
     
-    const wsUrl = `wss://build-better.site/ws/chat/${currentRoomId}?token=${token}`;
+    const wsUrl = `wss://build-better.site/ws/chat/${currentRoomId}`;
     console.log('Connecting to WebSocket:', wsUrl);
     
-    const newWs = new WebSocket(wsUrl);
+    // @ts-ignore - Ignoring TS error as React Native's WebSocket supports a 3rd options arg.
+    const newWs = new WebSocket(wsUrl, undefined, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
-    newWs.onopen = () => { console.log('WebSocket connection established.'); };
+    newWs.onopen = () => {
+      console.log('WebSocket connection established.');
+      setChatStatus('active');
 
+      // Start the keep-alive ping
+      if (pingInterval.current) clearInterval(pingInterval.current);
+      pingInterval.current = setInterval(() => {
+        if (newWs.readyState === WebSocket.OPEN) {
+          // The server might expect a simple string 'PING' or a JSON object.
+          // A simple string is often more robust with proxies.
+          console.log("Sending PING");
+          newWs.send('PING'); 
+        }
+      }, 30000); // Every 30 seconds
+    };
+    
     newWs.onmessage = (event) => {
+      // MAJOR FIX 2: The onmessage handler NOW works correctly
+      // We read from the refs to get the LATEST user and consultation data
+      const currentUser = userRef.current;
+      const currentConsultation = consultationRef.current;
+
       console.log('WebSocket message received:', event.data);
-      if (!user) return;
+      if (event.data === 'PONG') {
+          console.log("Received PONG");
+          return;
+      }
+      
+      if (!currentUser || !currentConsultation) {
+        console.error("Message received, but user or consultation ref is not set.");
+        return; // This check is now safe
+      }
 
       try {
-        const receivedMsg: ApiChatMessage = JSON.parse(event.data);
+        const receivedMsg = JSON.parse(event.data);
+
+        // Don't add your own messages again (if server echoes them)
+        if (receivedMsg.sender === currentUser.userId) {
+            return;
+        }
+
         const newMessage: Message = {
           id: receivedMsg.id || Date.now().toString(),
           message: receivedMsg.content,
-          timestamp: receivedMsg.createdAt || new Date().toISOString(),
-          isFromUser: receivedMsg.sender === user.userId,
-          senderName: receivedMsg.sender === user.userId ? (user.username || 'You') : consultation!.architectName,
+          timestamp: receivedMsg.createdAt || receivedMsg.sentAt || new Date().toISOString(), // Use sentAt if available
+          isFromUser: receivedMsg.sender === currentUser.userId,
+          senderName: currentConsultation.architectName, // Safely use ref data
           type: receivedMsg.type,
-          senderAvatar: receivedMsg.sender !== user.userId ? consultation?.architectAvatar : undefined,
+          senderAvatar: undefined,
         };
+        
+        // This will now correctly update the state and cause a re-render
         setMessages(prev => [newMessage, ...prev]);
+
       } catch (e) {
-        console.error('Error parsing WebSocket message:', e);
+        console.error('Error parsing WebSocket message:', e, 'Raw data:', event.data);
       }
     };
 
-    newWs.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      Alert.alert('Connection Error', 'Lost connection to the chat server.');
-      setChatStatus('ended');
+    // --- THIS IS THE KEY CHANGE ---
+    newWs.onerror = (error: any) => {
+      console.error('WebSocket error:', error.message);
+  
+      // Check for the specific handshake failure error (400, 401, 403, etc.).
+      if (error.message && error.message.includes("Expected HTTP 101 response but was")) {
+        console.log("WebSocket handshake failed. Server rejected connection, likely due to session timing.");
+        
+        // The server is the source of truth. It told us we can't connect.
+        // So, we are NOT 'active'. We must be either 'waiting' or 'ended'.
+        // We can re-evaluate the status to show the correct UI.
+        if (consultation) {
+            const now = new Date();
+            const consultationEnd = parseTimestamp(consultation.endDate);
+            
+            // If the session is over, mark it as 'ended'. Otherwise, we're still 'waiting'.
+            if (now > consultationEnd) {
+                setChatStatus('ended');
+            } else {
+                setChatStatus('waiting');
+            }
+        }
+        
+        // IMPORTANT: We do NOT show a generic, scary error alert here.
+        // The UI will simply update to show the "Waiting" or "Ended" message,
+        // which is the correct user experience.
+
+      } else {
+        // For other, unexpected errors (e.g., real network loss), the generic alert is appropriate.
+        Alert.alert('Connection Error', 'Lost connection to the chat server.');
+        setChatStatus('ended');
+      }
     };
+  
+    newWs.onclose = (event) => { 
+      console.log('WebSocket connection closed:', event.code, event.reason); 
+      if (pingInterval.current) {
+        clearInterval(pingInterval.current);
+      }
 
-    newWs.onclose = (event) => { console.log('WebSocket connection closed:', event.code, event.reason); };
-
+      // MAJOR FIX 3: Robust Reconnection Logic
+      // Only try to reconnect if the closure was abnormal (not code 1000)
+      // and if the component is not in the process of unmounting.
+      if (!isUnmounting.current && event.code !== 1000) {
+        console.log("Abnormal closure. Attempting to reconnect in 5 seconds...");
+        setTimeout(() => {
+          // Re-check that we haven't unmounted in the meantime
+          if (!isUnmounting.current) {
+            initializeWebSocket(currentRoomId);
+          }
+        }, 5000); // Wait 5 seconds before trying again
+      }
+    };
+  
     ws.current = newWs;
   };
 
   const handleSendMessage = async (message: string, images?: string[]) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN || !user) {
-        Alert.alert('Not Connected', 'You are not connected to the chat.');
-        return;
-    }
+      if (!ws.current || ws.current.readyState !== WebSocket.OPEN || !user) {
+          Alert.alert('Not Connected', 'You are not connected to the chat.');
+          return;
+      }
 
-    if (images && images.length > 0) {
-        for (const uri of images) {
-            try {
-                const formData = new FormData();
-                const filename = uri.split('/').pop();
-                const match = /\.(\w+)$/.exec(filename!);
-                const type = match ? `image/${match[1]}` : `image`;
-                formData.append('file', { uri, name: filename, type } as any);
+      // Handle text messages
+      if (message.trim()) {
+          const tempId = `temp_${Date.now()}`;
+          const sentAt = getLocalTimestamp(); // Generate timestamp on client side
 
-                const response = await buildconsultApi.uploadFile(formData, roomId!);
-                if (response.code === 200 && response.data) {
-                    const imageUrl = response.data;
-                    const payload = { sender: user.userId, sender_role: "user", content: imageUrl, type: "IMAGE" };
-                    ws.current.send(JSON.stringify(payload));
-                } else {
-                    throw new Error(response.error || 'Failed to upload image.');
-                }
-            } catch (error: any) {
-                console.error('Error sending image:', error);
-                Alert.alert('Upload Failed', error.message);
-            }
-        }
-    }
+          // Create the message object for the UI *immediately*
+          const optimisticMessage: Message = {
+              id: tempId,
+              message: message.trim(),
+              timestamp: sentAt, // Use client-generated timestamp
+              isFromUser: true, // It's from the user
+              senderName: user.username || 'You',
+              type: 'TEXT',
+              senderAvatar: undefined,
+          };
 
-    if (message.trim()) {
-        const payload = { sender: user.userId, sender_role: "user", content: message.trim(), type: "TEXT" };
-        ws.current.send(JSON.stringify(payload));
-    }
+          // Update the state to show the message on screen instantly
+          setMessages(prev => [optimisticMessage, ...prev]);
+
+          // Send the actual payload to the server with client timestamp
+          const payload = { 
+              sender: user.userId, 
+              senderRole: "user", 
+              content: message.trim(), 
+              type: "TEXT",
+              sentAt: sentAt // Include client timestamp
+          };
+          ws.current.send(JSON.stringify(payload));
+      }
+
+      // Handle image messages
+      if (images && images.length > 0) {
+          for (const uri of images) {
+              try {
+                  // Create optimistic image message with loading state
+                  const tempImageId = `temp_image_${Date.now()}_${Math.random()}`;
+                  const sentAt = getLocalTimestamp();
+                  
+                  const optimisticImageMessage: Message = {
+                      id: tempImageId,
+                      message: uri, // Use local URI initially
+                      timestamp: sentAt,
+                      isFromUser: true,
+                      senderName: user.username || 'You',
+                      type: 'IMAGE',
+                      senderAvatar: undefined,
+                  };
+
+                  // Show the image immediately with loading state
+                  setMessages(prev => [optimisticImageMessage, ...prev]);
+
+                  const formData = new FormData();
+                  const filename = uri.split('/').pop();
+                  const match = /\.(\w+)$/.exec(filename || '');
+                  const type = match ? `image/${match[1]}` : `image/jpeg`;
+                  
+                  const safeName = filename || `image_${Date.now()}.jpg`;
+                  
+                  const filePayload: PhotoUploadPayload = { 
+                      uri, 
+                      name: safeName, 
+                      type 
+                  };
+
+                  const response = await buildconsultApi.uploadFile(roomId!, filePayload);
+                  if (response.code === 200 && response.data) {
+                      const imageUrl = response.data;
+                      
+                      // Update the optimistic message with the server URL
+                      setMessages(prev => prev.map(msg => 
+                          msg.id === tempImageId 
+                              ? { ...msg, message: imageUrl }
+                              : msg
+                      ));
+                      
+                      const payload = { 
+                          sender: user.userId, 
+                          senderRole: "user", 
+                          content: imageUrl, 
+                          type: "IMAGE",
+                          sentAt: sentAt
+                      };
+                      ws.current.send(JSON.stringify(payload));
+                  } else {
+                      setMessages(prev => prev.filter(msg => msg.id !== tempImageId));
+                      throw new Error(response.error || 'Failed to upload image.');
+                  }
+              } catch (error: any) {
+                  console.error('Error sending image:', error);
+                  Alert.alert('Upload Failed', error.message);
+              }
+          }
+      }
   };
 
   const handleBack = () => router.back();
   const handleBookingPress = () => router.push('/buildconsult/booking');
 
+  // 3. UPDATE the formatDate function to be more explicit about local time:
   const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
+    const date = parseTimestamp(timestamp);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    if (date.toDateString() === today.toDateString()) return 'Hari ini';
-    if (date.toDateString() === yesterday.toDateString()) return 'Kemarin';
-    return date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Compare dates using local time components directly
+    const isSameDay = (date1: Date, date2: Date) => {
+      return date1.getFullYear() === date2.getFullYear() &&
+            date1.getMonth() === date2.getMonth() &&
+            date1.getDate() === date2.getDate();
+    };
+    
+    if (isSameDay(date, today)) return 'Hari ini';
+    if (isSameDay(date, yesterday)) return 'Kemarin';
+    
+    return date.toLocaleDateString('id-ID', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
   const groupMessagesByDate = (msgs: Message[]): GroupedMessage[] => {
@@ -284,10 +499,10 @@ export default function ChatPage() {
     let currentDate = '';
     let previousMessage: MessageWithDate | null = null;
     
-    const sortedMessages = [...msgs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const sortedMessages = [...msgs].sort((a, b) => parseTimestamp(a.timestamp).getTime() - parseTimestamp(b.timestamp).getTime());
     
     sortedMessages.forEach((message) => {
-      const messageDate = new Date(message.timestamp).toDateString();
+      const messageDate = parseTimestamp(message.timestamp).toDateString();
       if (messageDate !== currentDate) {
         currentDate = messageDate;
         grouped.push({ id: `date-${messageDate}`, type: 'date', date: formatDate(message.timestamp) });
@@ -304,6 +519,7 @@ export default function ChatPage() {
     return grouped.reverse();
   };
 
+  // 4. UPDATE the renderChatItem timestamp formatting:
   const renderChatItem = ({ item }: { item: GroupedMessage }) => {
     if (item.type === 'date') {
       return (
@@ -313,11 +529,17 @@ export default function ChatPage() {
       );
     }
     if (item.message) {
+      const timestampDate = parseTimestamp(item.message.timestamp);
+      // Use local time components directly for display
+      const hours = String(timestampDate.getHours()).padStart(2, '0');
+      const minutes = String(timestampDate.getMinutes()).padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+      
       return (
         <ChatMessage
           id={item.message.id}
           message={item.message.message}
-          timestamp={new Date(item.message.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+          timestamp={timeString}
           isFromUser={item.message.isFromUser}
           senderName={item.message.senderName}
           senderAvatar={item.message.senderAvatar}
@@ -330,7 +552,8 @@ export default function ChatPage() {
   };
 
   const getAvatarSource = (avatarUrl?: string) => {
-    return avatarUrl ? { uri: avatarUrl } : require('@/assets/images/blank-profile.png');
+    // Always use blank profile for now
+    return require('@/assets/images/blank-profile.png');
   };
 
   if (loading) {
@@ -370,11 +593,21 @@ export default function ChatPage() {
   const hasHistory = messages.length > 0;
   
   const now = new Date();
-  const consultationEnd = new Date(consultation.endDate);
+  const consultationEnd = parseTimestamp(consultation.endDate);
   const isSessionOver = chatStatus === 'ended' || now > consultationEnd;
   
-  const formattedDate = new Date(consultation.startDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
-  const formattedTime = `${new Date(consultation.startDate).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})} - ${new Date(consultation.endDate).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})}`;
+  // 6. UPDATE the main render section where consultation times are formatted:
+  // Replace these lines in your main render:
+  const formattedDate = parseTimestamp(consultation.startDate).toLocaleDateString('id-ID', {
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric'
+  });
+
+  const startTime = parseTimestamp(consultation.startDate);
+  const endTime = parseTimestamp(consultation.endDate);
+
+  const formattedTime = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')} - ${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
   
   const waitingMessageText = consultation.type === 'online'
       ? `Jadwal Konsultasi Chat akan dimulai pada ${formattedDate}, pukul ${formattedTime}.`
@@ -382,100 +615,105 @@ export default function ChatPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header is always visible */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.customOlive[50]} />
-        </TouchableOpacity>
-        <View style={styles.architectInfo}>
-          <Image source={getAvatarSource(consultation.architectAvatar)} style={styles.architectAvatar} />
-          <Text style={styles.architectName}>{consultation.architectName}</Text>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25} // Adjust this offset as needed
+      >
+        {/* Header is always visible */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color={theme.colors.customOlive[50]} />
+          </TouchableOpacity>
+          <View style={styles.architectInfo}>
+            <Image source={getAvatarSource(consultation.architectAvatar)} style={styles.architectAvatar} />
+            <Text style={styles.architectName}>{consultation.architectName}</Text>
+          </View>
         </View>
-      </View>
 
-      {/* --- MAIN CONTENT AREA --- */}
-      {hasHistory ? (
-        // Case 1: Chat has history, show the message list
-        <View style={styles.chatContainer}>
-          {consultation.type === 'offline' && consultation.location && (
-            <LocationCard
-              date={formattedDate}
-              time={formattedTime}
-              location={consultation.location}
-              locationDescription={consultation.locationDescription || undefined}
-            />
-          )}
-          <FlatList
-            ref={flatListRef}
-            data={groupedMessages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderChatItem}
-            style={styles.messagesList}
-            contentContainerStyle={styles.messagesContainer}
-            inverted
-          />
-        </View>
-      ) : (
-        // Case 2: No chat history, show full-screen status messages
-        <>
-          {chatStatus === 'waiting' && (
-            <WaitingMessage 
-              consultationType={consultation.type}
-              consultationDate={formattedDate}
-              consultationTime={formattedTime}
-            />
-          )}
-          {isSessionOver && (
-            <View style={styles.fullScreenStatusContainer}>
-              <MaterialIcons 
-                  name="check-circle-outline" 
-                  size={64} 
-                  color={theme.colors.customGray[200]} 
-                  style={styles.fullScreenStatusIcon}
+        {/* --- MAIN CONTENT AREA --- */}
+        {hasHistory ? (
+          // Case 1: Chat has history, show the message list
+          <View style={styles.chatContainer}>
+            {consultation.type === 'offline' && consultation.location && (
+              <LocationCard
+                date={formattedDate}
+                time={formattedTime}
+                location={consultation.location}
+                locationDescription={consultation.locationDescription || undefined}
               />
-              <Text style={styles.fullScreenStatusTitle}>
-                  Sesi konsultasi telah berakhir.
-              </Text>
-              <Text style={styles.fullScreenStatusText}>
-                  Mau booking ulang?{' '}
-                  <Text style={styles.bookingLink} onPress={handleBookingPress}>
-                      Silakan klik di sini.
-                  </Text>
-              </Text>
-            </View>
-          )}
-          {/* Render an empty flexible view if chat is active but has no history, pushing input to bottom */}
-          {chatStatus === 'active' && <View style={styles.chatContainer} />}
-        </>
-      )}
+            )}
+            <FlatList
+              ref={flatListRef}
+              data={groupedMessages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderChatItem}
+              style={styles.messagesList}
+              contentContainerStyle={styles.messagesContainer}
+              inverted
+            />
+          </View>
+        ) : (
+          // Case 2: No chat history, show full-screen status messages
+          <>
+            {chatStatus === 'waiting' && (
+              <WaitingMessage 
+                consultationType={consultation.type}
+                consultationDate={formattedDate}
+                consultationTime={formattedTime}
+              />
+            )}
+            {isSessionOver && (
+              <View style={styles.fullScreenStatusContainer}>
+                <MaterialIcons 
+                    name="check-circle-outline" 
+                    size={64} 
+                    color={theme.colors.customGray[200]} 
+                    style={styles.fullScreenStatusIcon}
+                />
+                <Text style={styles.fullScreenStatusTitle}>
+                    Sesi konsultasi telah berakhir.
+                </Text>
+                <Text style={styles.fullScreenStatusText}>
+                    Mau booking ulang?{' '}
+                    <Text style={styles.bookingLink} onPress={handleBookingPress}>
+                        Silakan klik di sini.
+                    </Text>
+                </Text>
+              </View>
+            )}
+            {/* Render an empty flexible view if chat is active but has no history, pushing input to bottom */}
+            {chatStatus === 'active' && <View style={styles.chatContainer} />}
+          </>
+        )}
 
-      {/* --- BOTTOM ACTION/STATUS AREA --- */}
-      {chatStatus === 'active' && (
-        <ChatInput
-          onSendMessage={handleSendMessage}
-          disabled={false}
-        />
-      )}
-      
-      {isSessionOver && hasHistory && (
-        <View style={styles.bookingFooter}>
-          <Text style={styles.bookingText}>
-            Sesi konsultasi telah berakhir. Mau booking ulang?{' '}
-            <Text style={styles.bookingLink} onPress={handleBookingPress}>
-              Silakan klik di sini.
+        {/* --- BOTTOM ACTION/STATUS AREA --- */}
+        {chatStatus === 'active' && (
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            disabled={false}
+          />
+        )}
+        
+        {isSessionOver && hasHistory && (
+          <View style={styles.bookingFooter}>
+            <Text style={styles.bookingText}>
+              Sesi konsultasi telah berakhir. Mau booking ulang?{' '}
+              <Text style={styles.bookingLink} onPress={handleBookingPress}>
+                Silakan klik di sini.
+              </Text>
             </Text>
-          </Text>
-        </View>
-      )}
+          </View>
+        )}
 
-      {chatStatus === 'waiting' && hasHistory && (
-        <View style={styles.bottomBanner}>
-          <Text style={styles.bottomBannerText}>
-              {waitingMessageText}
-          </Text>
-        </View>
-      )}
-
+        {chatStatus === 'waiting' && hasHistory && (
+          <View style={styles.bottomBanner}>
+            <Text style={styles.bottomBannerText}>
+                {waitingMessageText}
+            </Text>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -493,6 +731,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.customGray[50],
     backgroundColor: theme.colors.customWhite[50],
+    marginTop: 32,
   },
   backButton: {
     marginRight: 8,
