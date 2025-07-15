@@ -9,8 +9,7 @@ import { theme } from '@/app/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialSection } from '@/component/MaterialSection';
 import { MaterialSectionVertical } from '@/component/MaterialSectionVertical';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+// FileSystem and Sharing are no longer needed
 import { plansApi } from '@/services/api';
 import Tooltip from '@/component/Tooltip'; 
 
@@ -18,7 +17,7 @@ import Tooltip from '@/component/Tooltip';
 interface Material { id: string; name: string; category: string; subcategory: string; image: string; }
 interface MaterialSubCategory { subCategory: string; materials: Material[]; }
 interface MaterialCategory { category: string; subCategories: MaterialSubCategory[]; }
-interface Suggestion { id: string; houseNumber: number | string; landArea: number; buildingArea: number; style: string; floor: number; rooms: number; buildingHeight: number; designer: string; defaultBudget: number; budgetMin: number[]; budgetMax: number[]; floorplans: Array<string>; object: string; houseImageFront: string; houseImageSide: string; houseImageBack: string; pdf: string; windDirection: string[]; materials0: MaterialCategory[]; materials1: MaterialCategory[]; materials2: MaterialCategory[]; }
+interface Suggestion { id:string; houseNumber: number | string; landArea: number; buildingArea: number; style: string; floor: number; rooms: number; buildingHeight: number; designer: string; defaultBudget: number; budgetMin: number[]; budgetMax: number[]; floorplans: Array<string>; object: string; houseImageFront: string; houseImageSide: string; houseImageBack: string; pdf: string; windDirection: string[]; materials0: MaterialCategory[]; materials1: MaterialCategory[]; materials2: MaterialCategory[]; }
 interface UserInput { province: string; city: string; landform: string; landArea: number; entranceDirection: string; style: string; floor: number; rooms: number; }
 interface FloorplanData { id: number; floor: number; name: string; source: any; orientation: 'horizontal' | 'vertical'; }
 
@@ -48,7 +47,7 @@ const HouseDetailPage = () => {
   const isLandscape = width > height;
   
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationType, setNotificationType] = useState<'save' | 'unsave' | 'download'>('download');
+  const [notificationType, setNotificationType] = useState<'save' | 'unsave'>('save'); // 'download' type removed
   const fadeAnim = useState(new Animated.Value(0))[0];
   
   const [isSaving, setIsSaving] = useState(false);
@@ -61,6 +60,7 @@ const HouseDetailPage = () => {
 
   const [selectedBudgetTypeIndex, setSelectedBudgetTypeIndex] = useState<number>(1);
 
+  // ... (renderComparisonTooltipContent, useEffects, other functions remain the same) ...
   const renderComparisonTooltipContent = (isLandscapeMode: boolean) => {
     if (!userInput || !suggestion) return 'Memuat informasi...';
 
@@ -150,8 +150,6 @@ const HouseDetailPage = () => {
       </View>
     );
   };
-  
-  // ... (rest of the component's functions and hooks are unchanged) ...
   useEffect(() => {
     try {
       if (params.planDetails) {
@@ -211,7 +209,7 @@ const HouseDetailPage = () => {
     }
     router.back();
   }, [showMaterials, router]);
-  const showNotificationAnimation = (type: 'save' | 'unsave' | 'download') => {
+  const showNotificationAnimation = (type: 'save' | 'unsave') => {
     setNotificationType(type);
     setShowNotification(true);
     Animated.sequence([
@@ -279,32 +277,34 @@ const HouseDetailPage = () => {
       setIsUnsaving(false);
     }
   };
+
+  // --- MODIFIED FUNCTION ---
   const downloadPDF = async () => {
     if (!suggestion?.pdf) {
-      Alert.alert('Error', 'PDF not available for this design');
+      Alert.alert('Error', 'Link PDF tidak tersedia untuk desain ini.');
       return;
     }
+
     setIsDownloading(true);
     try {
-      const fileName = `House_${suggestion.houseNumber}.pdf`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      const downloadResult = await FileSystem.downloadAsync(suggestion.pdf, fileUri);
-      if (downloadResult?.uri && downloadResult.status === 200) {
-        showNotificationAnimation('download');
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadResult.uri, { mimeType: 'application/pdf', dialogTitle: `Download Rumah ${suggestion.houseNumber}` });
-        } else {
-          Alert.alert('Download', 'PDF downloaded successfully');
-        }
+      const url = suggestion.pdf;
+      // Check if the device can handle the URL
+      const supported = await Linking.canOpenURL(url);
+
+      if (supported) {
+        // Open the URL in the default browser or PDF viewer
+        await Linking.openURL(url);
       } else {
-        Alert.alert('Error', 'Could not download PDF. Please try again later.');
+        Alert.alert('Kesalahan', `Tidak dapat membuka link ini: ${url}`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not download PDF. Please try again later.');
+      console.error('Failed to open URL:', error);
+      Alert.alert('Kesalahan', 'Gagal membuka link PDF. Pastikan Anda memiliki aplikasi browser.');
     } finally {
-        setIsDownloading(false);
+      setIsDownloading(false);
     }
   };
+
   const handleAction = (action: 'toggleSave' | 'download') => {
     if (action === 'toggleSave') {
       if (isSaving || isUnsaving || isCheckingSaved) return;
@@ -339,7 +339,10 @@ const HouseDetailPage = () => {
     const max = `Rp${formatCurrency(suggestion.budgetMax[selectedBudgetTypeIndex] * suggestion.buildingArea)}`;
     return forLandscape ? `${min} - ${max}` : `${min} -\n${max}`;
   };
-  const getNotificationMessage = () => { switch (notificationType) { case 'save': return 'Desain rumah berhasil disimpan'; case 'unsave': return 'Desain rumah dihapus dari daftar'; case 'download': return 'PDF berhasil diunduh'; default: return ''; } };
+  
+  // --- MODIFIED FUNCTION ---
+  const getNotificationMessage = () => { switch (notificationType) { case 'save': return 'Desain rumah berhasil disimpan'; case 'unsave': return 'Desain rumah dihapus dari daftar'; default: return ''; } };
+
   const getSaveButtonText = () => { if (isCheckingSaved) return "Memeriksa..."; if (isUnsaving) return "Menghapus..."; if (isSaving) return "Menyimpan..."; if (isAlreadySaved) return "Tersimpan"; return "Simpan"; };
   const getSaveButtonIcon = () => { if (isCheckingSaved || isSaving || isUnsaving) return "hourglass-empty"; if (isAlreadySaved) return "bookmark"; return "bookmark-outline"; };
   const getBudgetTypeName = (index: number): string => { switch (index) { case 0: return 'Ekonomis'; case 1: return 'Original'; case 2: return 'Premium'; default: return 'Original'; } };
@@ -383,7 +386,8 @@ const HouseDetailPage = () => {
         </View>
         <View style={styles.buttonContainer}>
           <Button title={getSaveButtonText()} variant={isAlreadySaved ? "outline" : "primary"} icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>} iconPosition='left' onPress={() => handleAction('toggleSave')} disabled={isSaving || isCheckingSaved || isUnsaving} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
-          <Button title={isDownloading ? "Mengunduh..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
+          {/* --- MODIFIED BUTTON TEXT --- */}
+          <Button title={isDownloading ? "Membuka..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
         </View>
       </View>
     </>
@@ -417,7 +421,8 @@ const HouseDetailPage = () => {
       {is3D && <Button title="Material" variant="outline" icon={<MaterialIcons name="grid-view" size={16}/>} iconPosition='left' onPress={() => setShowMaterials(!showMaterials)} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6} style={{position: 'absolute', right: '70%', bottom: '60%'}}/>}
       <View style={styles.landscapeRightSidebar}>
         <View style={styles.budgetInfoRight}><Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget {getBudgetTypeName(selectedBudgetTypeIndex)}</Text><Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>{formatBudgetRange()}</Text></View>
-        <Button title={isDownloading ? "Mengunduh..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
+        {/* --- MODIFIED BUTTON TEXT --- */}
+        <Button title={isDownloading ? "Membuka..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
         <Button title={getSaveButtonText()} variant={isAlreadySaved ? "outline" : "primary"} icon={<MaterialIcons name={getSaveButtonIcon()} size={16}/>} iconPosition='left' onPress={() => handleAction('toggleSave')} disabled={isSaving || isCheckingSaved || isUnsaving} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
       </View>
     </>
