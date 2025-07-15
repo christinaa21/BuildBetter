@@ -126,6 +126,7 @@ export interface Plan {
 }
 
 export interface PlanWithSuggestion {
+  id: string;
   userInput: UserInput;
   suggestions: Suggestion;
 }

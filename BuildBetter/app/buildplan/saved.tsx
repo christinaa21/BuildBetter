@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, SafeAreaView, Text, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+// Import useFocusEffect from expo-router
+import { useRouter, useFocusEffect } from 'expo-router';
 import { theme } from '../theme';
 import { plansApi, PlanWithSuggestion } from '@/services/api';
 import Button from '@/component/Button';
@@ -13,19 +14,15 @@ const Saved = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSavedPlans();
-  }, []);
-
-  const fetchSavedPlans = async () => {
+  const fetchSavedPlans = useCallback(async () => {
     try {
+      // Set loading to true each time we fetch
       setLoading(true);
       
-      // Check if user is logged in by verifying token exists
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) {
         setError('Please log in to view your saved plans.');
-        setLoading(false);
+        setPlans([]); // Clear previous plans if any
         return;
       }
 
@@ -45,7 +42,16 @@ const Saved = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Use useFocusEffect instead of useEffect.
+  // This will run the fetchSavedPlans function every time this screen comes into focus.
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Saved screen focused, fetching latest plans...');
+      fetchSavedPlans();
+    }, [fetchSavedPlans])
+  );
 
   const handleViewDetails = (plan: PlanWithSuggestion) => {
     try {
@@ -54,6 +60,7 @@ const Saved = () => {
         params: {
           id: plan.suggestions.id,
           planDetails: JSON.stringify({
+            id: plan.id,
             suggestions: plan.suggestions,
             userInput: plan.userInput
           })
@@ -92,7 +99,7 @@ const Saved = () => {
               <Button
                 title="Try Again"
                 variant="outline"
-                onPress={fetchSavedPlans}
+                onPress={fetchSavedPlans} // Allow manual retry as well
                 style={styles.button}
               />
             )}
@@ -110,7 +117,7 @@ const Saved = () => {
         ) : (
           <FlatList
             data={plans}
-            keyExtractor={(item, index) => `${item.suggestions.id}-${index}`}
+            keyExtractor={(item) => item.id} // Use the unique plan ID as the key
             renderItem={({ item, index }) => (
               <HouseCard
                 house={{
@@ -129,6 +136,9 @@ const Saved = () => {
             )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
+            // Add a refreshing control for pull-to-refresh functionality
+            onRefresh={fetchSavedPlans}
+            refreshing={loading}
           />
         )}
       </View>
@@ -136,6 +146,7 @@ const Saved = () => {
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

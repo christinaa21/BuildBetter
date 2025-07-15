@@ -151,7 +151,7 @@ const DesignPreference: React.FC<DesignPreferenceProps> = ({ data, onNext, onBac
               />
 
               <RadioGroup
-                label="Jumlah Kamar yang Akan Dibuat"
+                label="Jumlah Kamar Tidur yang Akan Dibuat"
                 options={[
                   {"label": "1", "value": 1},
                   {"label": "2", "value": 2},
