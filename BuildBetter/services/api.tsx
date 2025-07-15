@@ -324,7 +324,7 @@ export interface GetRoomsChatResponse {
     sender: string;
     senderRole: 'user' | 'architect';
     content: string;
-    type: 'TEXT' | 'IMAGE';
+    type: "TEXT" | "IMAGE" | "FILE";
     createdAt: string;
   };
   error?: string;

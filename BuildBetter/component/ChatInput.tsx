@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Text, Alert } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import theme from '../app/theme';
 
+// Define the shape of an asset for the onSendMessage callback
+interface MessageAsset {
+  uri: string;
+  type: 'image' | 'file';
+  name: string;
+  mimeType?: string;
+}
+
 interface ChatInputProps {
-  onSendMessage: (message: string, images?: string[]) => void;
+  onSendMessage: (message: string, assets?: MessageAsset[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -26,48 +35,72 @@ export default function ChatInput({
 
   const pickImages = async () => {
     try {
-      // Request permission to access media library
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          "Permission Required",
-          "Permission to access camera roll is required to select images.",
-          [{ text: "OK" }]
-        );
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Permission to access camera roll is required.");
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         quality: 0.8,
-        aspect: [4, 3],
-        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets) {
-        const imageUris = result.assets.map(asset => asset.uri);
-        // Send images immediately after selection
-        onSendMessage('', imageUris);
+        const imageAssets: MessageAsset[] = result.assets.map(asset => ({
+          uri: asset.uri,
+          type: 'image',
+          name: asset.fileName || asset.uri.split('/').pop() || 'image.jpg',
+          mimeType: asset.type,
+        }));
+        onSendMessage('', imageAssets);
       }
     } catch (error) {
       console.error('Error picking images:', error);
-      Alert.alert(
-        "Error",
-        "Failed to select images. Please try again.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Error", "Failed to select images. Please try again.");
+    }
+  };
+
+  const pickFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        copyToCacheDirectory: true, // Important for ensuring file access for uploads
+      });
+
+      if (!result.canceled) {
+        const fileAssets: MessageAsset[] = result.assets.map(asset => ({
+          uri: asset.uri,
+          type: 'file',
+          name: asset.name,
+          mimeType: asset.mimeType,
+        }));
+        onSendMessage('', fileAssets);
+      }
+    } catch (error) {
+      console.error('Error picking files:', error);
+      Alert.alert("Error", "Failed to select files. Please try again.");
     }
   };
 
   return (
     <View style={styles.container}>
-      
       <View style={styles.inputContainer}>
         <TouchableOpacity 
-          style={styles.imageButton}
+          style={styles.actionButton}
+          onPress={pickFiles}
+          disabled={disabled}
+        >
+          <Ionicons 
+            name="attach-outline" 
+            size={24} 
+            color={disabled ? theme.colors.customGray[100] : theme.colors.customOlive[50]} 
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
           onPress={pickImages}
           disabled={disabled}
         >
@@ -118,21 +151,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     backgroundColor: '#F8F8F8',
     borderRadius: 24,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     minHeight: 48,
   },
-  imageButton: {
-    padding: 4,
+  actionButton: {
+    padding: 8,
   },
   textInput: {
     flex: 1,
     ...theme.typography.body2,
     color: theme.colors.customOlive[50],
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     maxHeight: 100,
     alignSelf: 'center',
-    marginTop: 2,
+    paddingTop: 0, // Fix for multiline vertical alignment on Android
+    paddingBottom: 0,
   },
   disabledInput: {
     color: theme.colors.customGray[100],

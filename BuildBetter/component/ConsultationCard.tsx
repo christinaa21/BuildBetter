@@ -55,6 +55,7 @@ const formatDateTimeRange = (startDate: string, endDate: string): string => {
     const dateDisplay = isToday ? 'Hari ini' : start.toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'short',
+      year: 'numeric'
     });
 
     const startTime = start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });

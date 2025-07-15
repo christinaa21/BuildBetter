@@ -96,7 +96,13 @@ const HistoryCard: React.FC<HistoryCardProps> = (props) => {
 
   const handleLihatChat = () => {
     if (roomId) {
-      alert(`Navigasi ke room chat: ${roomId}`); // Replace with actual navigation
+      router.push({
+        pathname: '/buildconsult/chat/[roomId]',
+        params: { 
+          roomId: roomId,
+          consultationId: id
+        },
+      });
     } else {
       alert('Room chat belum tersedia untuk konsultasi ini.');
     }

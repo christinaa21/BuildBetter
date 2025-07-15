@@ -14,8 +14,16 @@ interface MultiSelectDrawerProps {
   options: string[];
   selectedValues: string[];
   onApply: (newSelectedValues: string[]) => void;
-  enableSearch?: boolean; // Optional prop to enable/disable search
-  searchPlaceholder?: string; // Optional custom search placeholder
+  enableSearch?: boolean;
+  searchPlaceholder?: string;
+  // Two-step filter props
+  twoStepFilter?: boolean;
+  twoStepData?: {
+    provinces: Array<{
+      label: string;
+      cities: Array<{ label: string }>;
+    }>;
+  };
 }
 
 export default function MultiSelectDrawer({
@@ -27,36 +35,150 @@ export default function MultiSelectDrawer({
   onApply,
   enableSearch = false,
   searchPlaceholder = "Cari...",
+  twoStepFilter = false,
+  twoStepData,
 }: MultiSelectDrawerProps) {
   const [tempSelectedValues, setTempSelectedValues] = useState<string[]>(selectedValues);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Two-step filter states
+  const [currentStep, setCurrentStep] = useState<'province' | 'city'>('province');
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
 
   useEffect(() => {
-    // Sync with external changes if the modal is re-opened
     if (isVisible) {
       setTempSelectedValues(selectedValues);
-      setSearchQuery(''); // Reset search when modal opens
+      setSearchQuery('');
+      
+      // Reset two-step filter states when modal opens
+      if (twoStepFilter) {
+        setCurrentStep('province');
+        setSelectedProvince(null);
+        setAvailableCities([]);
+        setSelectedProvinces([]);
+      }
     }
-  }, [selectedValues, isVisible]);
+  }, [selectedValues, isVisible, twoStepFilter]);
+
+  // Get provinces for two-step filter
+  const provinces = useMemo(() => {
+    if (!twoStepFilter || !twoStepData) return [];
+    return twoStepData.provinces.map(province => province.label);
+  }, [twoStepFilter, twoStepData]);
+
+  // Get current options based on step and filter
+  const currentOptions = useMemo(() => {
+    if (twoStepFilter) {
+      if (currentStep === 'province') {
+        return provinces;
+      } else {
+        return availableCities;
+      }
+    }
+    return options;
+  }, [twoStepFilter, currentStep, provinces, availableCities, options]);
 
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
     if (!enableSearch || searchQuery.trim() === '') {
-      return options;
+      return currentOptions;
     }
-    return options.filter(option => 
+    return currentOptions.filter(option => 
       option.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [options, searchQuery, enableSearch]);
+  }, [currentOptions, searchQuery, enableSearch]);
+
+  // Get current selected values based on step
+  const currentSelectedValues = useMemo(() => {
+    if (twoStepFilter) {
+      if (currentStep === 'province') {
+        return selectedProvinces;
+      } else {
+        return tempSelectedValues;
+      }
+    }
+    return tempSelectedValues;
+  }, [twoStepFilter, currentStep, selectedProvinces, tempSelectedValues]);
 
   const handleToggleOption = (option: string) => {
-    setTempSelectedValues(prev =>
-      prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
-    );
+    if (twoStepFilter) {
+      if (currentStep === 'province') {
+        // Handle province selection (multi-select for selecting all cities in provinces)
+        setSelectedProvinces(prev => {
+          const newSelection = prev.includes(option) 
+            ? prev.filter(item => item !== option) 
+            : [...prev, option];
+          
+          // Update selected cities based on province selection
+          updateCitiesFromProvinces(newSelection);
+          return newSelection;
+        });
+      } else {
+        // Handle city selection (multi-select)
+        setTempSelectedValues(prev =>
+          prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
+        );
+      }
+    } else {
+      // Original behavior for non-two-step filter
+      setTempSelectedValues(prev =>
+        prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
+      );
+    }
+  };
+
+  // Helper function to update cities based on selected provinces
+  const updateCitiesFromProvinces = (provinces: string[]) => {
+    if (!twoStepData) return;
+    
+    const allCitiesFromSelectedProvinces: string[] = [];
+    provinces.forEach(provinceName => {
+      const provinceData = twoStepData.provinces.find(p => p.label === provinceName);
+      if (provinceData) {
+        const cities = provinceData.cities.map(city => city.label);
+        allCitiesFromSelectedProvinces.push(...cities);
+      }
+    });
+    
+    setTempSelectedValues(allCitiesFromSelectedProvinces);
+  };
+
+  // Handle province navigation (when user wants to drill down to specific cities)
+  const handleProvinceNavigation = (provinceName: string) => {
+    setSelectedProvince(provinceName);
+    
+    // Find cities for selected province
+    const provinceData = twoStepData?.provinces.find(p => p.label === provinceName);
+    if (provinceData) {
+      const cities = provinceData.cities.map(city => city.label);
+      setAvailableCities(cities);
+      setCurrentStep('city');
+      setSearchQuery(''); // Reset search when moving to cities
+    }
   };
 
   const handleClear = () => {
-    setTempSelectedValues([]);
+    if (twoStepFilter) {
+      if (currentStep === 'province') {
+        setSelectedProvinces([]);
+        setTempSelectedValues([]);
+      } else {
+        setTempSelectedValues([]);
+      }
+    } else {
+      setTempSelectedValues([]);
+    }
+  };
+
+  const handleBack = () => {
+    if (twoStepFilter && currentStep === 'city') {
+      setCurrentStep('province');
+      setSelectedProvince(null);
+      setAvailableCities([]);
+      setSearchQuery('');
+    }
   };
 
   const handleApply = () => {
@@ -68,14 +190,36 @@ export default function MultiSelectDrawer({
     setSearchQuery(query);
   };
 
-  const renderItem = ({ item }: { item: string }) => (
-    <TouchableOpacity style={styles.optionItem} onPress={() => handleToggleOption(item)}>
-      <Text style={styles.optionText}>{item}</Text>
-      <View style={[styles.checkboxBase, tempSelectedValues.includes(item) && styles.checkboxChecked]}>
-        {tempSelectedValues.includes(item) && <Text style={styles.checkboxCheckmark}>✓</Text>}
-      </View>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }: { item: string }) => {
+    const isSelected = currentSelectedValues.includes(item);
+    const isProvinceStep = twoStepFilter && currentStep === 'province';
+    
+    return (
+      <TouchableOpacity style={styles.optionItem} onPress={() => handleToggleOption(item)}>
+        <View style={styles.optionContent}>
+          <View style={[styles.checkboxBase, isSelected && styles.checkboxChecked]}>
+            {isSelected && <Text style={styles.checkboxCheckmark}>✓</Text>}
+          </View>
+          <Text style={styles.optionText}>{item}</Text>
+          {isProvinceStep && (
+            <TouchableOpacity 
+              style={styles.navigateButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleProvinceNavigation(item);
+              }}
+            >
+              <MaterialIcons 
+                name="keyboard-arrow-right" 
+                size={24} 
+                color={theme.colors.customGreen[300]} 
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
@@ -83,6 +227,18 @@ export default function MultiSelectDrawer({
       <Text style={styles.emptyText}>Tidak ada hasil yang sesuai dengan pencarian.</Text>
     </View>
   );
+
+  // Get current title based on step
+  const getCurrentTitle = () => {
+    if (twoStepFilter) {
+      if (currentStep === 'province') {
+        return 'Pilih Provinsi';
+      } else {
+        return `Pilih Kota - ${selectedProvince}`;
+      }
+    }
+    return title;
+  };
 
   return (
     <Modal
@@ -97,7 +253,18 @@ export default function MultiSelectDrawer({
             
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.modalTitle}>{title}</Text>
+              <View style={styles.headerLeft}>
+                {twoStepFilter && currentStep === 'city' && (
+                  <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                    <MaterialIcons name="arrow-back" size={24} color={theme.colors.customGreen[300]} />
+                  </TouchableOpacity>
+                )}
+                <Text style={[styles.modalTitle, twoStepFilter && currentStep === 'city' && styles.modalTitleWithBack]}>
+                  {getCurrentTitle()}
+                </Text>
+              </View>
+              
+              {/* Always show reset button for both steps */}
               <TouchableOpacity onPress={handleClear}>
                 <Text style={styles.clearButtonText}>Reset</Text>
               </TouchableOpacity>
@@ -140,8 +307,7 @@ export default function MultiSelectDrawer({
                 minHeight={44}
                 paddingVertical={10}
               />
-            </View>
-            
+            </View>   
           </Pressable>
         </SafeAreaView>
       </Pressable>
@@ -159,8 +325,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.customWhite[50],
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '80%', // Increased to accommodate search bar
-    minHeight: '64%', // Ensure minimum height
+    maxHeight: '80%',
+    minHeight: '64%',
   },
   modalContent: {
     flex: 1,
@@ -173,9 +339,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    marginRight: 8,
+  },
   modalTitle: {
     ...theme.typography.subtitle1,
     color: theme.colors.customOlive[50],
+  },
+  modalTitleWithBack: {
+    marginLeft: 0,
+    paddingRight: 48,
   },
   clearButtonText: {
     ...theme.typography.body2,
@@ -186,7 +364,7 @@ const styles = StyleSheet.create({
     marginTop: -8,
   },
   listContainer: {
-    flex: 1, // Take remaining space above button
+    flex: 1,
     marginBottom: 16,
   },
   list: {
@@ -198,10 +376,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  optionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   optionText: {
     ...theme.typography.body1,
     color: theme.colors.customOlive[50],
     flex: 1,
+  },
+  navigateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingLeft: 48,
+  },
+  navigateButtonText: {
+    ...theme.typography.caption,
+    color: theme.colors.customGreen[300],
+    marginRight: 2,
   },
   checkboxBase: {
     width: 24,
@@ -211,7 +406,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.customGreen[300],
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    marginRight: 10,
   },
   checkboxChecked: {
     backgroundColor: theme.colors.customGreen[300],
@@ -241,6 +436,17 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 5 : 20,
     borderTopWidth: 1,
     borderTopColor: theme.colors.customGray[50],
-    backgroundColor: theme.colors.customWhite[50], // Ensure button area has background
+    backgroundColor: theme.colors.customWhite[50],
+  },
+  instructionContainer: {
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 5 : 20,
+    paddingHorizontal: 4,
+  },
+  instructionText: {
+    ...theme.typography.caption,
+    color: theme.colors.customGray[200],
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

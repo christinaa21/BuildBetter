@@ -341,7 +341,7 @@ export default function BuildConsultPage() {
         }
       >
         <View style={styles.infoChip}>
-          <Text style={[theme.typography.title, {color: theme.colors.customGreen[300]}]}>Riwayat Konsultasi</Text>
+          <Text style={[theme.typography.title, {color: theme.colors.customGreen[300]}]}>Konsultasi Saya</Text>
         </View>
         
         {filteredConsultations.length === 0 && searchQuery.trim() !== '' && (

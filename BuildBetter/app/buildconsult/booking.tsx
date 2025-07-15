@@ -208,9 +208,9 @@ const BookingConsultation: React.FC = () => {
 
   const generateAllTimeSlots = (): string[] => {
     const slots = [];
-    for (let hour = 7; hour <= 20; hour++) {
+    for (let hour = 7; hour <= 19; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        if (hour === 20 && minute > 0) break;
+        if (hour === 19 && minute > 30) break;
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         slots.push(timeString);
       }
@@ -268,7 +268,7 @@ const BookingConsultation: React.FC = () => {
           ];
           
           bufferTimes.forEach(bufferTime => {
-            if (bufferTime >= '08:00' && bufferTime <= '20:00') {
+            if (bufferTime >= '07:00' && bufferTime <= '19:30') {
               bufferedSlots.add(bufferTime);
             }
           });
@@ -286,7 +286,7 @@ const BookingConsultation: React.FC = () => {
         for (let i = 0; i < durationInMinutes; i += 30) {
           const checkTime = addMinutesToTime(startTime, i);
           
-          if (checkTime > '19:00') {
+          if (checkTime > '23:30') {
             return false;
           }
           
@@ -560,7 +560,13 @@ const BookingConsultation: React.FC = () => {
                 params: { consultationId: newConsultationId, totalAmount: calculateTotal().toString(), createdAt }
             });
         } else {
-            Alert.alert('Booking Gagal', response.error || 'Terjadi kesalahan.');
+            let errorMessage = response.error || 'Terjadi kesalahan.';
+            
+            if (response.error === "You already have an active (scheduled or in-progress) booking with this architect") {
+                errorMessage = "Anda sudah memiliki jadwal konsultasi aktif (dijadwalkan atau berlangsung) dengan arsitek ini";
+            }
+            
+            Alert.alert('Booking Gagal', errorMessage);
         }
       }
     } catch (error) {

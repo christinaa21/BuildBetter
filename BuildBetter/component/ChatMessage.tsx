@@ -1,4 +1,3 @@
-// component/ChatMessage.tsx
 import React, { useState } from 'react';
 import { 
   View, 
@@ -9,7 +8,8 @@ import {
   TouchableOpacity, 
   Modal, 
   Dimensions,
-  SafeAreaView
+  SafeAreaView,
+  Linking
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import theme from '../app/theme';
@@ -22,7 +22,8 @@ interface ChatMessageProps {
   senderName?: string;
   senderAvatar?: string;
   isFirstMessageFromSender?: boolean;
-  type?: 'TEXT' | 'IMAGE';
+  type?: 'TEXT' | 'IMAGE' | 'FILE';
+  fileName?: string;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -33,7 +34,8 @@ export default function ChatMessage({
   isFromUser, 
   senderAvatar,
   isFirstMessageFromSender = false,
-  type = 'TEXT'
+  type = 'TEXT',
+  fileName,
 }: ChatMessageProps) {
   
   const [imageLoading, setImageLoading] = useState(false);
@@ -47,14 +49,23 @@ export default function ChatMessage({
     return require('@/assets/images/blank-profile.png');
   };
 
-  const isLocalImage = (uri: string) => {
-    return uri.startsWith('file://') || uri.startsWith('content://') || !uri.startsWith('http');
+  const isLocalUri = (uri: string) => {
+    return !uri.startsWith('http');
+  };
+
+  const handleFilePress = () => {
+    if (type === 'FILE' && !isLocalUri(message)) {
+      Linking.openURL(message).catch(err => {
+        console.error("Failed to open URL:", err);
+        alert('Could not open the file link.');
+      });
+    }
   };
 
   // Render content based on type
   const renderMessageContent = () => {
     if (type === 'IMAGE') {
-      const imageSource = isLocalImage(message) ? { uri: message } : { uri: message };
+      const imageSource = { uri: message };
       
       if (imageError) {
         return (
@@ -66,30 +77,48 @@ export default function ChatMessage({
       }
 
       return (
-        <View style={styles.imageContainer}>
-          <TouchableOpacity 
-            onPress={() => setShowFullImage(true)}
-            style={styles.imageWrapper}
-          >
-            <Image 
-              source={imageSource}
-              style={styles.messageImage}
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={(e) => {
-                console.log('Image loading error:', e.nativeEvent.error);
-                setImageLoading(false);
-                setImageError(true);
-              }}
-              resizeMode="cover"
-            />
-            {imageLoading && (
-              <View style={styles.imageLoadingOverlay}>
-                <ActivityIndicator size="small" color={theme.colors.customWhite[50]} />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => setShowFullImage(true)} style={styles.imageWrapper}>
+          <Image 
+            source={imageSource}
+            style={styles.messageImage}
+            onLoadStart={() => setImageLoading(true)}
+            onLoadEnd={() => setImageLoading(false)}
+            onError={() => { setImageLoading(false); setImageError(true); }}
+            resizeMode="cover"
+          />
+          {(imageLoading || isLocalUri(message)) && (
+            <View style={styles.imageLoadingOverlay}>
+              <ActivityIndicator size="small" color={theme.colors.customWhite[50]} />
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    if (type === 'FILE') {
+      const isUploading = isLocalUri(message);
+      const fileColor = isFromUser ? theme.colors.customWhite[50] : theme.colors.customOlive[50];
+
+      return (
+        <TouchableOpacity
+          style={styles.fileContainer}
+          onPress={handleFilePress}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <ActivityIndicator size="small" color={fileColor} style={styles.fileIcon} />
+          ) : (
+            <MaterialIcons name="attach-file" size={32} color={fileColor} style={styles.fileIcon} />
+          )}
+          <View style={styles.fileInfo}>
+            <Text style={[styles.fileNameText, { color: fileColor }]} numberOfLines={2}>
+              {fileName || 'File Attachment'}
+            </Text>
+            <Text style={[styles.fileActionText, { color: fileColor, opacity: isUploading ? 1 : 0.8 }]}>
+              {isUploading ? 'Uploading...' : 'Tap to open'}
+            </Text>
+          </View>
+        </TouchableOpacity>
       );
     }
     
@@ -112,20 +141,10 @@ export default function ChatMessage({
         onRequestClose={() => setShowFullImage(false)}
       >
         <SafeAreaView style={styles.fullImageModal}>
-          <View style={styles.fullImageContainer}>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => setShowFullImage(false)}
-            >
-              <MaterialIcons name="close" size={30} color={theme.colors.customWhite[50]} />
-            </TouchableOpacity>
-            
-            <Image 
-              source={isLocalImage(message) ? { uri: message } : { uri: message }}
-              style={styles.fullImage}
-              resizeMode="contain"
-            />
-          </View>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setShowFullImage(false)}>
+            <MaterialIcons name="close" size={30} color={theme.colors.customWhite[50]} />
+          </TouchableOpacity>
+          <Image source={{ uri: message }} style={styles.fullImage} resizeMode="contain" />
         </SafeAreaView>
       </Modal>
     );
@@ -139,12 +158,7 @@ export default function ChatMessage({
         isFirstMessageFromSender && styles.firstMessageFromSender
       ]}>
         {!isFromUser && (
-          <View style={styles.avatarContainer}>
-            <Image 
-              source={getAvatarSource()} 
-              style={styles.avatar}
-            />
-          </View>
+          <Image source={getAvatarSource()} style={styles.avatar}/>
         )}
         
         <View style={[
@@ -175,23 +189,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'flex-end',
   },
-  userMessage: {
-    justifyContent: 'flex-end',
-  },
-  architectMessage: {
-    justifyContent: 'flex-start',
-  },
-  firstMessageFromSender: {
-    marginTop: 12,
-  },
-  avatarContainer: {
-    marginRight: 8,
-    marginBottom: 4,
-  },
+  userMessage: { justifyContent: 'flex-end' },
+  architectMessage: { justifyContent: 'flex-start' },
+  firstMessageFromSender: { marginTop: 12 },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 4,
   },
   bubble: {
     maxWidth: '75%',
@@ -208,37 +214,16 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   imageBubble: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    padding: 4,
     backgroundColor: 'transparent',
   },
-  messageText: {
-    ...theme.typography.body2,
-    lineHeight: 20,
-  },
-  userText: {
-    color: theme.colors.customWhite[50],
-  },
-  architectText: {
-    color: theme.colors.customOlive[50],
-  },
-  imageContainer: {
-    position: 'relative',
-  },
-  imageWrapper: {
-    position: 'relative',
-  },
-  messageImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-  },
+  messageText: { ...theme.typography.body2, lineHeight: 20 },
+  userText: { color: theme.colors.customWhite[50] },
+  architectText: { color: theme.colors.customOlive[50] },
+  imageWrapper: { position: 'relative' },
+  messageImage: { width: 200, height: 150, borderRadius: 12 },
   imageLoadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -256,50 +241,41 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.customGray[200],
     marginTop: 8,
-    textAlign: 'center',
   },
-  timestamp: {
-    ...theme.typography.caption,
-    marginTop: 4,
-    fontSize: 11,
-  },
-  userTimestamp: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'right',
-  },
-  architectTimestamp: {
-    color: theme.colors.customGray[200],
-  },
+  timestamp: { ...theme.typography.caption, marginTop: 4, fontSize: 11 },
+  userTimestamp: { color: 'rgba(255, 255, 255, 0.8)', textAlign: 'right' },
+  architectTimestamp: { color: theme.colors.customGray[200] },
   imageTimestamp: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     color: theme.colors.customWhite[50],
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    alignSelf: 'flex-end',
-    marginTop: 4,
   },
-  // Full image modal styles
-  fullImageModal: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  },
-  fullImageContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  fullImageModal: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)' },
+  closeButton: { position: 'absolute', top: 50, right: 20, zIndex: 1, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 },
+  fullImage: { width: screenWidth, height: screenHeight, resizeMode: 'contain' },
+  // File Styles
+  fileContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 180,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    padding: 10,
-    borderRadius: 25,
+  fileIcon: {
+    marginRight: 12,
   },
-  fullImage: {
-    width: screenWidth,
-    height: screenHeight * 0.8,
+  fileInfo: {
+    flex: 1,
+  },
+  fileNameText: {
+    ...theme.typography.body2,
+    fontWeight: 'bold',
+  },
+  fileActionText: {
+    ...theme.typography.caption,
+    marginTop: 2,
   },
 });

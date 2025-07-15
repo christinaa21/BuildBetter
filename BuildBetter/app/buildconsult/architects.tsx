@@ -309,6 +309,10 @@ export default function Architects() {
         selectedValues={selectedCities}
         onApply={handleCityFilterApply}
         enableSearch
+        twoStepFilter={true}
+        twoStepData={{
+          provinces: locationData.provinces
+        }}
       />
     </View>
   );
