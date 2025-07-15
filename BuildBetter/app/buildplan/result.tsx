@@ -1,9 +1,8 @@
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import theme from '../theme';
-import { Card } from '@/component/Card';
-import { GridContainer } from '@/component/GridContainer';
 import Button from '@/component/Button';
+import HouseCard from '@/component/HouseCard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -101,6 +100,17 @@ export default function ResultPage() {
     parseData();
   }, [stringifiedParams]);
 
+  const handleViewDetails = (suggestion: Suggestion) => {
+    router.push({
+      pathname: './detail/[id]',
+      params: { 
+        id: suggestion.id,
+        suggestion: JSON.stringify(suggestion),
+        userInput: JSON.stringify(userInput) 
+      }
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -133,29 +143,27 @@ export default function ResultPage() {
         {suggestions.length === 0 ? (
           <Text style={styles.errorText}>Tidak ada rekomendasi yang ditemukan</Text>
         ) : (
-          <GridContainer
+          <FlatList
             data={suggestions}
-            numColumns={2}
-            columnSpacing={16}
-            rowSpacing={16}
-            renderItem={(item: Suggestion) => (
-              <Card
-                title={`Rumah ${item.houseNumber}`}
-                image={
-                  item.houseImageFront 
+            keyExtractor={(item, index) => `${item.id}-${index}`}
+            renderItem={({ item, index }) => (
+              <HouseCard
+                house={{
+                  id: item.id,
+                  name: `Rumah ${item.houseNumber}`,
+                  imageUrl: item.houseImageFront 
                     ? { uri: item.houseImageFront }
-                    : require('@/assets/images/blank.png')
-                }
-                buttonTitle="Lihat Detil"
-                buttonVariant='primary'
-                onButtonPress={() => router.push({
-                  pathname: './detail/[id]',
-                  params: { id: item.id,
-                            suggestion: JSON.stringify(item),
-                            userInput: JSON.stringify(userInput) }
-                })}
+                    : require('@/assets/images/blank.png'),
+                  size: `${item.landArea || userInput?.landArea || 0}`,
+                  style: item.style || userInput?.style || '',
+                  floors: item.floor || userInput?.floor || 0,
+                  bedrooms: item.rooms || userInput?.rooms || 0
+                }}
+                onPress={() => handleViewDetails(item)}
               />
             )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
           />
         )}
       </View>
@@ -176,11 +184,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 24,
+    padding: 16,
   },
   text: {
     color: theme.colors.customOlive[50],
     paddingBottom: 16,
+    paddingHorizontal: 8,
   },
   button: {
     margin: '8%',
@@ -194,5 +203,12 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     padding: 20,
+  },
+  listContent: {
+    paddingBottom: 16,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
 });

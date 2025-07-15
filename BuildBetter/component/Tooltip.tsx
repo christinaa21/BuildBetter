@@ -14,9 +14,10 @@ import theme from '@/app/theme';
 interface TooltipProps {
   content: React.ReactNode | string;
   position?: 'top' | 'bottom' | 'left' | 'right';
+  width?: number; // Added optional width prop
 }
 
-const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left' }) => {
+const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left', width: customWidth }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [iconPosition, setIconPosition] = useState({
     pageX: 0,
@@ -34,7 +35,8 @@ const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left' }) => {
 
   const renderTooltipContent = () => {
     const screenWidth = Dimensions.get('window').width;
-    const tooltipWidth = Math.min(250, screenWidth - 40);
+    // Use customWidth if provided, otherwise calculate a default width
+    const tooltipWidth = customWidth || Math.min(250, screenWidth - 40);
     
     let tooltipStyle: {
       position: 'absolute';
@@ -66,14 +68,14 @@ const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left' }) => {
       case 'top':
         tooltipStyle = {
           ...tooltipStyle,
-          left: iconPosition.pageX - tooltipWidth / 2,
-          bottom: screenWidth - iconPosition.pageY + iconPosition.height + 8,
+          left: iconPosition.pageX - tooltipWidth / 2 + iconPosition.width / 2,
+          bottom: Dimensions.get('window').height - iconPosition.pageY + 8,
         };
         break;
       case 'bottom':
         tooltipStyle = {
           ...tooltipStyle,
-          left: iconPosition.pageX - tooltipWidth / 2,
+          left: iconPosition.pageX - tooltipWidth / 2 + iconPosition.width / 2,
           top: iconPosition.pageY + iconPosition.height + 8,
         };
         break;
@@ -84,6 +86,13 @@ const Tooltip: React.FC<TooltipProps> = ({ content, position = 'left' }) => {
           left: iconPosition.pageX + iconPosition.width + 8,
           top: iconPosition.pageY - 10,
         };
+    }
+     // Adjust if tooltip goes off-screen horizontally
+    if (tooltipStyle.left && tooltipStyle.left < 10) {
+        tooltipStyle.left = 10;
+    }
+    if (tooltipStyle.right && (screenWidth - tooltipStyle.right - tooltipWidth) < 10){
+        tooltipStyle.right = screenWidth - tooltipWidth - 10;
     }
 
     return (
