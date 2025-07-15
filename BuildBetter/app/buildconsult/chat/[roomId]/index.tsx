@@ -618,7 +618,7 @@ export default function ChatPage() {
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"} 
         style={styles.container}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25} // Adjust this offset as needed
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 16} // Adjust this offset as needed
       >
         {/* Header is always visible */}
         <View style={styles.header}>
@@ -731,7 +731,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.customGray[50],
     backgroundColor: theme.colors.customWhite[50],
-    marginTop: 32,
   },
   backButton: {
     marginRight: 8,

@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   disclaimer: {
-    color: theme.colors.customGreen[200],
+    color: '#ED4337',
     paddingBottom: 8,
   },
   inputContainer: {

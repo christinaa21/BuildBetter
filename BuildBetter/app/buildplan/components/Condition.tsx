@@ -138,13 +138,13 @@ const Condition: React.FC<ConditionProps> = ({ data, onNext, onBack }) => {
   const buttonAnimation = new Animated.Value(0);
 
   const validateArea = (area: string) => {
-    if (!area) return 'Harap masukkan luas lahan';
+    if (!area) return 'Harap masukkan luas tanah';
     
     const areaValue = parseFloat(area);
     
-    if (isNaN(areaValue)) return 'Luas lahan harus berupa angka';
-    if (areaValue <= 0) return 'Luas lahan harus lebih besar dari 0';
-    if (areaValue > 1000) return 'Luas lahan maksimal 1000 m²';
+    if (isNaN(areaValue)) return 'Luas tanah harus berupa angka';
+    if (areaValue <= 0) return 'Luas tanah harus lebih besar dari 0';
+    if (areaValue > 1000) return 'Luas tanah maksimal 1000 m²';
     
     return undefined;
   };
@@ -254,7 +254,7 @@ const Condition: React.FC<ConditionProps> = ({ data, onNext, onBack }) => {
                 collapsable={false} // Important for measuring native views
               >
                 <Textfield
-                  label="Luas Lahan (m²)"
+                  label="Luas Tanah (m²)"
                   example="60.5"
                   value={formData.area}
                   onChangeText={handleAreaChange}
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   disclaimer: {
-    color: theme.colors.customGreen[200],
+    color: '#ED4337',
     paddingBottom: 8,
   },
   inputContainer: {

@@ -113,21 +113,7 @@ const ConsultationBookingLoading = () => {
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        if (bookingState === 'loading') {
-          Alert.alert(
-            'Tunggu Sebentar', 
-            'Pesanan sedang diproses. Apakah Anda ingin melihat status di halaman riwayat?', 
-            [
-              { text: 'Tunggu Disini', style: 'cancel' },
-              { 
-                text: 'Ke Riwayat', 
-                onPress: () => router.replace('/(tabs)/history')
-              }
-            ]
-          );
-        } else {
           router.replace('/(tabs)/history');
-        }
         return true;
       };
       const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -243,12 +229,12 @@ const ConsultationBookingLoading = () => {
                 Tunggu sebentar ya!
               </Text>
               <Text style={[styles.subheader, theme.typography.body1]}>
-                Admin sedang mengonfirmasi pesananmu
+                Admin sedang mengonfirmasi pesanan.
+              </Text>
+              <Text style={[styles.hintText]}>
+                Anda dapat melihat status pesanan di halaman riwayat.
               </Text>
               <ActivityIndicator size="large" color={theme.colors.customGreen[300]} style={styles.loader} />
-              <Text style={[styles.hintText, theme.typography.body2]}>
-                Anda dapat melihat status pesanan di halaman riwayat
-              </Text>
             </View>
           );
   
@@ -372,8 +358,9 @@ const styles = StyleSheet.create({
     hintText: {
       color: theme.colors.customOlive[50],
       textAlign: 'center',
-      marginTop: 24,
       opacity: 0.7,
+      fontSize: 15,
+      marginBottom: 16,
     },
     buttonContainer: {
       marginVertical: 16,

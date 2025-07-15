@@ -16,7 +16,7 @@ export default function LandingPage() {
           Hai {name}!
         </Text>
         <Text style={[theme.typography.body1, styles.description]}>
-          Agar kami dapat memberikan rencana persiapan pembangunan rumah yang sesuai kebutuhannmu, kami membutuhkan data terkait kondisi lahan, kebutuhan, dan preferensimu. Yuk jawab pertanyaan-pertanyaan berikut dengan sungguh-sungguh agar mendapatkan rekomendasi yang memuaskan!
+          Agar kami dapat memberikan rencana persiapan pembangunan rumah yang sesuai kebutuhanmu, kami membutuhkan data terkait kondisi lahan, kebutuhan, dan preferensimu. Yuk jawab pertanyaan-pertanyaan berikut dengan sungguh-sungguh agar mendapatkan rekomendasi yang memuaskan!
         </Text>
       </View>
       <View>

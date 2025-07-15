@@ -99,6 +99,16 @@ const HouseDetailPage = () => {
   // State for selected budget type: 0 for Ekonomis, 1 for Original, 2 for Premium
   const [selectedBudgetTypeIndex, setSelectedBudgetTypeIndex] = useState<number>(1);
 
+  // Helper function to get budget type name
+  const getBudgetTypeName = (index: number): string => {
+    switch (index) {
+      case 0: return 'Ekonomis';
+      case 1: return 'Original';
+      case 2: return 'Premium';
+      default: return 'Original';
+    }
+  };
+
   React.useEffect(() => {
     try {
       if (params.planDetails) {
@@ -437,7 +447,7 @@ const HouseDetailPage = () => {
 
           <View style={styles.landscapeRightSidebar}>
             <View style={styles.budgetInfoRight}>
-              <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget</Text>
+              <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.caption]}>Kisaran Budget {getBudgetTypeName(selectedBudgetTypeIndex)}</Text>
               <Text style={[{color: theme.colors.customGreen[300]}, theme.typography.subtitle2]}>{formatBudgetRange()}</Text>
             </View>
             <Button title={isDownloading ? "Mengunduh..." : "Unduh PDF"} variant="primary" icon={<MaterialIcons name={isDownloading ? "hourglass-empty" : "download"} size={16}/>} iconPosition='left' onPress={() => handleAction('download')} disabled={!suggestion?.pdf || isDownloading} minHeight={10} minWidth={50} paddingHorizontal={16} paddingVertical={6}/>
@@ -511,7 +521,7 @@ const HouseDetailPage = () => {
 
         <View style={styles.infoContainer}>
           <View style={styles.budgetInfo}>
-            <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget</Text>
+            <Text style={[{color: theme.colors.customOlive[50]}, theme.typography.body2]}>Kisaran Budget {getBudgetTypeName(selectedBudgetTypeIndex)}</Text>
             <Text style={[{color: theme.colors.customGreen[400]}, theme.typography.subtitle1]}>{formatBudgetRange(false)}</Text>
           </View>
           <View style={styles.buttonContainer}>

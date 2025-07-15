@@ -169,21 +169,21 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
         title: 'Original', 
         priceRange: `${formatPriceToRupiah(budgetMin[1])} - ${formatPriceToRupiah(budgetMax[1])}`, 
         animation: originalAnimation,
-        width: budgetRangeWidths.original || 110 
+        width: Math.max(budgetRangeWidths.original || 110, 110) // Ensure minimum width
       },
       { 
         id: 'ekonomis', 
         title: 'Ekonomis', 
         priceRange: `${formatPriceToRupiah(budgetMin[0])} - ${formatPriceToRupiah(budgetMax[0])}`, 
         animation: ekonomisAnimation,
-        width: budgetRangeWidths.ekonomis || 105
+        width: Math.max(budgetRangeWidths.ekonomis || 105, 105) // Ensure minimum width
       },
       { 
         id: 'premium', 
         title: 'Premium', 
         priceRange: `${formatPriceToRupiah(budgetMin[2])} - ${formatPriceToRupiah(budgetMax[2])}`, 
         animation: premiumAnimation,
-        width: budgetRangeWidths.premium || 95
+        width: Math.max(budgetRangeWidths.premium || 95, 95) // Ensure minimum width
       }
     ];
   }, [budgetMin, budgetMax, originalAnimation, ekonomisAnimation, premiumAnimation, budgetRangeWidths]);
@@ -249,7 +249,10 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
 
   const measureBudgetRangeWidth = (budgetId: string, event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    setBudgetRangeWidths(prev => ({ ...prev, [budgetId]: width + 2 }));
+    setBudgetRangeWidths(prev => ({ 
+      ...prev, 
+      [budgetId]: width 
+    }));
   };
 
   const transformMaterialsToArray = (materialsObj: any): MaterialCategory[] => {
@@ -309,21 +312,62 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
     const budgetOptionsToRender = getBudgetOptions();
     return budgetOptionsToRender.map((budget) => {
       const isSelected = currentDisplayBudget === budget.id;
-      const fixedWidth = budget.width || 0;
-      const rangeWidth = budget.animation!.interpolate({ inputRange: [0, 1], outputRange: [0, fixedWidth + 20], extrapolate: 'clamp' });
-      const rangeOpacity = budget.animation!.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1], extrapolate: 'clamp' });
+      const baseWidth = 75; // Base button width (title only)
+      const fullTextWidth = budget.width || baseWidth;
+      
+      // Animate the entire button width, not just the text container
+      const buttonWidth = budget.animation!.interpolate({ 
+        inputRange: [0, 1], 
+        outputRange: [baseWidth, fullTextWidth + 16], // Add padding
+        extrapolate: 'clamp' 
+      });
+      
+      const textOpacity = budget.animation!.interpolate({ 
+        inputRange: [0, 0.3, 1], 
+        outputRange: [0, 0, 1], 
+        extrapolate: 'clamp' 
+      });
       
       return (
-        <Pressable key={budget.id} style={[styles.budgetButton, isSelected && styles.selectedBudgetButton]} onPress={() => handleBudgetSelect(budget.id)}>
-          <Text style={[styles.budgetButtonText, isSelected && styles.selectedBudgetButtonText]} numberOfLines={1}>{budget.title}</Text>
-          <Animated.View style={{ width: rangeWidth, opacity: rangeOpacity, overflow: 'hidden' }}>
-            <Text style={[styles.budgetRangeText, isSelected && styles.selectedBudgetButtonText]} numberOfLines={1}>({budget.priceRange})/m²</Text>
-          </Animated.View>
-        </Pressable>
+        <Animated.View 
+          key={budget.id}
+          style={[
+            styles.budgetButton, 
+            isSelected && styles.selectedBudgetButton,
+            { width: buttonWidth } // Animate the entire button width
+          ]}
+        >
+          <Pressable 
+            style={styles.budgetButtonPressable}
+            onPress={() => handleBudgetSelect(budget.id)}
+          >
+            <Text 
+              style={[
+                styles.budgetButtonText, 
+                isSelected && styles.selectedBudgetButtonText
+              ]} 
+              numberOfLines={1}
+            >
+              {budget.title}
+            </Text>
+            {isSelected && (
+              <Animated.Text 
+                style={[
+                  styles.budgetRangeText, 
+                  styles.selectedBudgetButtonText,
+                  { opacity: textOpacity }
+                ]} 
+                numberOfLines={1}
+              >
+                {' '}({budget.priceRange})/m²
+              </Animated.Text>
+            )}
+          </Pressable>
+        </Animated.View>
       );
     });
   };
-
+  
   const getContainerWidth = () => { 
     const materials = getMaterialsForCategory();
     const numColumns = getNumColumns();
@@ -347,10 +391,14 @@ export const MaterialSection: React.FC<MaterialSectionProps> = ({
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <View style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
+      <View style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', top: -1000 }}>
         {getBudgetOptions().map(budget => (
-          <Text key={`measure-${budget.id}`} style={styles.budgetRangeText} onLayout={(event) => measureBudgetRangeWidth(budget.id, event)}>
-            ({budget.priceRange})
+          <Text 
+            key={`measure-${budget.id}`} 
+            style={[styles.budgetButtonText, styles.budgetRangeText]} 
+            onLayout={(event) => measureBudgetRangeWidth(budget.id, event)}
+          >
+            {budget.title} ({budget.priceRange})/m²
           </Text>
         ))}
       </View>
@@ -434,12 +482,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.customGreen[50],
+    flexWrap: 'wrap',
+    minHeight: 50,
   },
   headerRightSection: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    minWidth: 0, // Changed: Allow shrinking
   },
   panelTitle: {
     ...theme.typography.subtitle1,
@@ -459,21 +510,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    flexShrink: 1, // Changed: Allow shrinking if needed
   },
   budgetButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginHorizontal: 4,
+    marginHorizontal: 2, // Changed: Reduced margin
     borderRadius: 8,
     borderWidth: 1,
     borderColor: theme.colors.customGreen[300],
     backgroundColor: 'transparent',
+    overflow: 'hidden', // Changed: Prevent text overflow
+    height: 32, // Changed: Fixed height
+  },
+  budgetButtonPressable: {
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'nowrap',
-    overflow: 'hidden',
-    minWidth: 75,
   },
   selectedBudgetButton: {
     backgroundColor: theme.colors.customGreen[300],
@@ -489,7 +543,6 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     fontSize: 11,
     color: theme.colors.customGreen[500],
-    marginLeft: 4,
   },
   selectedBudgetButtonText: {
     color: theme.colors.customWhite[50],

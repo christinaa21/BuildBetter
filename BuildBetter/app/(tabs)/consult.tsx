@@ -1,6 +1,6 @@
 // app/buildconsult/index.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from '../theme';
@@ -84,6 +84,7 @@ export default function BuildConsultPage() {
   const fetchConsultationHistory = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear any previous errors
       
       const token = await SecureStore.getItemAsync('userToken');
       if (!token) {
@@ -92,6 +93,19 @@ export default function BuildConsultPage() {
         return;
       }
 
+      // Step 1: Refresh consultations first to update expired ones
+      try {
+        const refreshResponse = await buildconsultApi.refreshConsultations();
+        if (refreshResponse.code !== 200) {
+          console.warn('Failed to refresh consultations:', refreshResponse.error);
+          // Continue with fetching even if refresh fails
+        }
+      } catch (refreshError) {
+        console.warn('Error refreshing consultations:', refreshError);
+        // Continue with fetching even if refresh fails
+      }
+
+      // Step 2: Fetch the (now updated) list of consultations
       const consultationResponse = await buildconsultApi.getConsultations();
       
       if (consultationResponse.code !== 200 || !consultationResponse.data) {
@@ -108,6 +122,7 @@ export default function BuildConsultPage() {
         return;
       }
 
+      // Step 3: Fetch architects to match with consultations
       const architectResponse = await buildconsultApi.getArchitects();
       
       if (architectResponse.code !== 200 || !architectResponse.data) {
@@ -162,7 +177,6 @@ export default function BuildConsultPage() {
       );
       
       setHasConsultationHistory(hasDisplayableConsultations);
-      setError(null);
 
     } catch (err) {
       console.error('Error fetching consultation history:', err);
@@ -314,7 +328,18 @@ export default function BuildConsultPage() {
         />
       </View>
 
-      <ScrollView style={styles.consultationList} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.consultationList} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={fetchConsultationHistory}
+            colors={[theme.colors.customGreen[300]]}
+            tintColor={theme.colors.customGreen[300]}
+          />
+        }
+      >
         <View style={styles.infoChip}>
           <Text style={[theme.typography.title, {color: theme.colors.customGreen[300]}]}>Riwayat Konsultasi</Text>
         </View>
