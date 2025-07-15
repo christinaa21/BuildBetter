@@ -359,7 +359,7 @@ const Register = () => {
               />
 
               <Dropdown
-                label="Provinsi"
+                label="Provinsi Domisili"
                 placeholder="Pilih provinsi"
                 searchPlaceholder='Cari provinsi...'
                 options={provinces}
@@ -369,7 +369,7 @@ const Register = () => {
               />
 
               <Dropdown
-                label="Kota"
+                label="Kota Domisili"
                 placeholder="Pilih kota"
                 searchPlaceholder='Cari kota...'
                 options={cities}

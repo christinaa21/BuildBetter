@@ -1,3 +1,5 @@
+// component/ChatInput.tsx
+
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -5,8 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import theme from '../app/theme';
 
-// Define the shape of an asset for the onSendMessage callback
-interface MessageAsset {
+export interface MessageAsset {
   uri: string;
   type: 'image' | 'file';
   name: string;
@@ -52,7 +53,9 @@ export default function ChatInput({
           uri: asset.uri,
           type: 'image',
           name: asset.fileName || asset.uri.split('/').pop() || 'image.jpg',
-          mimeType: asset.type,
+          // --- THIS IS THE FIX ---
+          // Use asset.mimeType instead of asset.type to get the correct content type (e.g., 'image/jpeg')
+          mimeType: asset.mimeType, 
         }));
         onSendMessage('', imageAssets);
       }
@@ -66,7 +69,7 @@ export default function ChatInput({
     try {
       const result = await DocumentPicker.getDocumentAsync({
         multiple: true,
-        copyToCacheDirectory: true, // Important for ensuring file access for uploads
+        copyToCacheDirectory: true,
       });
 
       if (!result.canceled) {
@@ -139,47 +142,11 @@ export default function ChatInput({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: theme.colors.customWhite[50],
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.customGray[50],
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 24,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    minHeight: 48,
-  },
-  actionButton: {
-    padding: 8,
-  },
-  textInput: {
-    flex: 1,
-    ...theme.typography.body2,
-    color: theme.colors.customOlive[50],
-    marginHorizontal: 4,
-    maxHeight: 100,
-    alignSelf: 'center',
-    paddingTop: 0, // Fix for multiline vertical alignment on Android
-    paddingBottom: 0,
-  },
-  disabledInput: {
-    color: theme.colors.customGray[100],
-  },
-  sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.customGreen[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: theme.colors.customGray[50],
-  },
+  container: { backgroundColor: theme.colors.customWhite[50], paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: theme.colors.customGray[50] },
+  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#F8F8F8', borderRadius: 24, paddingHorizontal: 8, paddingVertical: 8, minHeight: 48 },
+  actionButton: { padding: 8 },
+  textInput: { flex: 1, ...theme.typography.body2, color: theme.colors.customOlive[50], marginHorizontal: 4, maxHeight: 100, alignSelf: 'center', paddingTop: 0, paddingBottom: 0 },
+  disabledInput: { color: theme.colors.customGray[100] },
+  sendButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.customGreen[300], justifyContent: 'center', alignItems: 'center' },
+  disabledButton: { backgroundColor: theme.colors.customGray[50] },
 });

@@ -525,10 +525,11 @@ export default function ProfileEdit() {
               onValidation={(isValid) => handleValidation('email', isValid)}
               keyboardType="email-address"
               autoCapitalize="none"
+              disabled
             />
 
             <Dropdown
-              label="Provinsi"
+              label="Provinsi Domisili"
               placeholder="Pilih provinsi"
               searchPlaceholder="Cari provinsi..."
               options={provinces}
@@ -538,7 +539,7 @@ export default function ProfileEdit() {
             />
 
             <Dropdown
-              label="Kota/Kabupaten"
+              label="Kota/Kabupaten Domisili"
               placeholder="Pilih kota"
               searchPlaceholder="Cari kota..."
               options={cities}

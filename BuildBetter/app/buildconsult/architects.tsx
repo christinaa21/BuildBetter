@@ -193,8 +193,14 @@ export default function Architects() {
       <ScrollView style={styles.architectList} showsVerticalScrollIndicator={false}>
         <View style={styles.infoChip}>
           <Text style={[theme.typography.subtitle1]}>Rekomendasi Arsitek</Text>
+          
+          {/* BuildBetter Team Information */}
+          <Text style={[theme.typography.caption, styles.buildBetterInfoText]}>
+            <MaterialIcons name="verified" size={12} color={theme.colors.customGreen[400]} /> Semua arsitek merupakan arsitek profesional yang telah diseleksi oleh tim BuildBetter.
+          </Text>
+
           <Text style={[theme.typography.caption, styles.infoChipText]}>
-            Sebagai informasi, 1 sesi chat berlangsung selama 30 menit dan 1 sesi tatap muka berlangsung selama 1 jam.
+            Sebagai informasi, 1 sesi chat = 30 menit dan 1 sesi tatap muka = 1 jam.
           </Text>
           
           {/* Show user city priority info */}
@@ -343,6 +349,10 @@ const styles = StyleSheet.create({
   },
   infoChipText: {
     color: theme.colors.customOlive[50],
+  },
+  buildBetterInfoText: {
+    color: theme.colors.customGreen[400],
+    marginBottom: 4,
   },
   priorityText: {
     color: theme.colors.customGreen[400],

@@ -32,6 +32,7 @@ interface TextfieldProps extends TextInputProps {
   height?: number;
   paddingVertical?: number;
   borderRadius?: number;
+  disabled?: boolean;
 }
 
 const Textfield: React.FC<TextfieldProps> = ({
@@ -46,6 +47,7 @@ const Textfield: React.FC<TextfieldProps> = ({
   height,
   paddingVertical,
   borderRadius = 16,
+  disabled = false,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -58,29 +60,33 @@ const Textfield: React.FC<TextfieldProps> = ({
   const labelAnimation = React.useRef(new Animated.Value(value ? 1 : 0)).current;
 
   const validateInput = useCallback(() => {
-    if (validate && shouldValidate) {
+    if (validate && shouldValidate && !disabled) {
       const validationError = validate(value);
       setLocalError(validationError);
       onValidation?.(!validationError);
     }
-  }, [value, validate, shouldValidate, onValidation]);
+  }, [value, validate, shouldValidate, onValidation, disabled]);
 
   useEffect(() => {
     setLocalError(error);
   }, [error]);
 
   useEffect(() => {
-    const timer = setTimeout(validateInput, 100);
-    return () => clearTimeout(timer);
-  }, [value, validateInput]);
+    if (!disabled) {
+      const timer = setTimeout(validateInput, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [value, validateInput, disabled]);
 
   useEffect(() => {
-    if (isFocused && localError) {
+    if (isFocused && localError && !disabled) {
       setLocalError(undefined);
     }
-  }, [value, isFocused]);
+  }, [value, isFocused, disabled]);
 
   const animateFocus = (focused: boolean) => {
+    if (disabled) return;
+    
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
     Animated.parallel([
@@ -98,6 +104,8 @@ const Textfield: React.FC<TextfieldProps> = ({
   };
 
   const handleChangeText = (text: string) => {
+    if (disabled) return;
+    
     setValue(text);
     if (localError) {
       setLocalError(undefined);
@@ -106,12 +114,16 @@ const Textfield: React.FC<TextfieldProps> = ({
   };
 
   const handleFocus = () => {
+    if (disabled) return;
+    
     setIsFocused(true);
     setShouldValidate(false);
     animateFocus(true);
   };
 
   const handleBlur = () => {
+    if (disabled) return;
+    
     setIsFocused(false);
     setShouldValidate(true);
     animateFocus(false);
@@ -119,6 +131,7 @@ const Textfield: React.FC<TextfieldProps> = ({
   };
 
   const getBorderColor = () => {
+    if (disabled) return theme.colors.customGray[50] || '#E5E5E5';
     if (localError) return 'red';
     return borderColorAnim.interpolate({
       inputRange: [0, 1],
@@ -138,9 +151,15 @@ const Textfield: React.FC<TextfieldProps> = ({
   };
 
   // Clone and modify icon with appropriate color if it exists
+  const getIconColor = () => {
+    if (disabled) return theme.colors.customGray[100] || '#999999';
+    if (localError) return 'red';
+    return theme.colors.customGreen[300];
+  };
+
   const coloredIcon = icon && React.isValidElement(icon) 
     ? React.cloneElement(icon as React.ReactElement, {
-        color: localError ? 'red' : (theme.colors.customGreen[300]),
+        color: getIconColor(),
         size: 20,
       })
     : icon;
@@ -154,8 +173,9 @@ const Textfield: React.FC<TextfieldProps> = ({
               styles.label,
               typography.body2,
               labelStyle,
-              isFocused && !localError && styles.labelFocused,
-              localError && styles.labelError,
+              isFocused && !localError && !disabled && styles.labelFocused,
+              localError && !disabled && styles.labelError,
+              disabled && styles.labelDisabled,
             ]}
           >
             {label}
@@ -167,6 +187,7 @@ const Textfield: React.FC<TextfieldProps> = ({
         style={[
           styles.inputContainer,
           { borderColor: getBorderColor(), height: height, borderRadius: borderRadius },
+          disabled && styles.inputContainerDisabled,
         ]}
       >
         {icon && (
@@ -179,31 +200,42 @@ const Textfield: React.FC<TextfieldProps> = ({
             styles.input, 
             typography.body1,
             {paddingVertical: paddingVertical},
+            disabled && styles.inputDisabled,
           ]}
           onFocus={handleFocus}
           onBlur={handleBlur}
           onChangeText={handleChangeText}
           value={value}
           secureTextEntry={isPassword && !showPassword}
-          placeholderTextColor={theme.colors.customGray[100]}
+          placeholderTextColor={disabled ? theme.colors.customGray[100] : theme.colors.customGray[100]}
           placeholder={!isFocused ? example : ''}
+          editable={!disabled}
           {...props}
         />
         {isPassword && (
           <TouchableOpacity
             style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
+            onPress={() => !disabled && setShowPassword(!showPassword)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            disabled={disabled}
           >
             {showPassword ? 
-              <MaterialIcons name="visibility" size={20} color={theme.colors.customOlive[50]} /> :
-              <MaterialIcons name="visibility-off" size={20} color={theme.colors.customOlive[50]} />
+              <MaterialIcons 
+                name="visibility" 
+                size={20} 
+                color={disabled ? theme.colors.customGray[100] : theme.colors.customOlive[50]} 
+              /> :
+              <MaterialIcons 
+                name="visibility-off" 
+                size={20} 
+                color={disabled ? theme.colors.customGray[100] : theme.colors.customOlive[50]} 
+              />
             }
           </TouchableOpacity>
         )}
       </Animated.View>
       
-      {localError && (
+      {localError && !disabled && (
         <Text style={[styles.errorText, typography.caption]}>
           {localError}
         </Text>
@@ -234,6 +266,9 @@ const styles = StyleSheet.create({
   labelError: {
     color: 'red',
   },
+  labelDisabled: {
+    color: theme.colors.customGray[200] || '#999999',
+  },
   inputContainer: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -245,6 +280,11 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     elevation: 2,
   },
+  inputContainerDisabled: {
+    backgroundColor: '#F5F5F5',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   iconContainer: {
     paddingLeft: 16,
     justifyContent: 'center',
@@ -254,6 +294,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     color: theme.colors.customGreen[500],
+  },
+  inputDisabled: {
+    color: theme.colors.customGray[100] || '#999999',
   },
   errorText: {
     color: 'red',

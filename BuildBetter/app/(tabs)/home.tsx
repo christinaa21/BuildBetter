@@ -59,8 +59,8 @@ export default function HomeScreen() {
         // Sort articles by createdAt in descending order (newest first)
         const sortedArticles = response.data.sort((a, b) => {
           // Convert createdAt strings to Date objects for comparison
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
+          const dateA = new Date(a.updatedAt);
+          const dateB = new Date(b.updatedAt);
           return dateB.getTime() - dateA.getTime(); // Newest to oldest
         });
         

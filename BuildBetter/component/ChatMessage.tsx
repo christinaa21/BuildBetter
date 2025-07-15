@@ -112,10 +112,10 @@ export default function ChatMessage({
           )}
           <View style={styles.fileInfo}>
             <Text style={[styles.fileNameText, { color: fileColor }]} numberOfLines={2}>
-              {fileName || 'File Attachment'}
+              {fileName || 'File'}
             </Text>
             <Text style={[styles.fileActionText, { color: fileColor, opacity: isUploading ? 1 : 0.8 }]}>
-              {isUploading ? 'Uploading...' : 'Tap to open'}
+              {isUploading ? 'Mengunggah...' : 'Klik untuk membuka'}
             </Text>
           </View>
         </TouchableOpacity>

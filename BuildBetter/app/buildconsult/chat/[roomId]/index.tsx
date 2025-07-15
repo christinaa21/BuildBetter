@@ -304,10 +304,29 @@ export default function ChatPage() {
               setMessages(prev => [optimisticMessage, ...prev]);
 
               try {
-                  const filePayload: PhotoUploadPayload = { 
-                      uri: asset.uri, name: asset.name, 
-                      type: asset.mimeType || (isImage ? 'image/jpeg' : 'application/octet-stream')
+                  // --- THIS IS THE IMPROVEMENT ---
+                  // More robust way to determine the MIME type for the upload payload.
+                  const getMimeType = (asset: MessageAsset): string => {
+                      // 1. Use the provided mimeType if it exists.
+                      if (asset.mimeType) {
+                          return asset.mimeType;
+                      }
+                      // 2. If it's an image and mimeType is missing, guess from the extension.
+                      if (isImage) {
+                          const extension = asset.name.split('.').pop()?.toLowerCase();
+                          if (extension === 'png') return 'image/png';
+                          return 'image/jpeg'; // Default for images.
+                      }
+                      // 3. Final fallback for other files.
+                      return 'application/octet-stream';
                   };
+                  
+                  const filePayload: PhotoUploadPayload = { 
+                      uri: asset.uri, 
+                      name: asset.name, 
+                      type: getMimeType(asset) // Use our robust helper function.
+                  };
+
                   const response = await buildconsultApi.uploadFile(roomId!, filePayload);
                   
                   if (response.code === 200 && response.data) {

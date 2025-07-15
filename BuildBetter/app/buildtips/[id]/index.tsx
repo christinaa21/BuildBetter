@@ -68,9 +68,11 @@ export default function ArticlePage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
     });
   };
 
@@ -141,9 +143,18 @@ export default function ArticlePage() {
                 Ditulis oleh {article.author}
               </Text>
             }
-            <Text style={[theme.typography.caption, styles.articleDate]}>
-              {formatDate(article.createdAt)}
-            </Text>
+            {new Date(article.createdAt).getTime() === new Date(article.updatedAt).getTime() ? (
+              <Text style={[theme.typography.overline, styles.articleDate]}>
+                Dibuat dan diperbarui tanggal {formatDate(article.createdAt)}
+              </Text>
+            ) : (
+              <>
+                <Text style={[theme.typography.overline, styles.articleDate]}>
+                  Dibuat {formatDate(article.createdAt)},
+                  Diperbarui {formatDate(article.updatedAt)}
+                </Text>
+              </>
+            )}
           </View>
 
           {/* Title */}
@@ -187,15 +198,12 @@ const styles = StyleSheet.create({
   },
   articleImage: {
     width: '100%',
-    height: 240,
+    height: 180,
   },
   articleContent: {
     padding: 20,
   },
   articleMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
   authorText: {
